@@ -4,17 +4,22 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+)
 
-	"mailgraph/internal/buildinfo"
+var (
+	Version   = "dev"
+	BuildDate = "Unknown"
+	GitCommit = "Unknown"
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("mailgraph %s (Go port)\n", buildinfo.Version)
-		fmt.Printf("  Build: %s\n", buildinfo.BuildDate)
-		fmt.Printf("  Commit: %s\n", buildinfo.GitCommit)
+		fmt.Printf("Mailgraph (Go port)\n")
+		fmt.Printf("  Version:    %s\n", Version)
+		fmt.Printf("  Build Time: %s\n", BuildDate)
+		fmt.Printf("  Git Commit: %s\n", GitCommit)
 	},
 }
 

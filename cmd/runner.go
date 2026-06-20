@@ -56,6 +56,8 @@ func runServer(cfg config.Config) error {
 		}
 	}()
 
+	web.AppVersion = Version
+
 	e := echo.New()
 	srv := web.New(cfg, mailgraphCSS)
 	srv.Register(e)

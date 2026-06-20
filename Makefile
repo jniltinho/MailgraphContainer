@@ -8,7 +8,7 @@ UPX_URL      := https://github.com/upx/upx/releases/download/v$(UPX_VERSION)/$(U
 ## Variables for Go application
 APP        := mailgraph
 BIN        := bin/$(APP)
-PKG        := mailgraph/internal/buildinfo
+PKG        := mailgraph/cmd
 VERSION    ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 RELEASE_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")

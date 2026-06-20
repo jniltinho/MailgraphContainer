@@ -12,7 +12,6 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 
-	"mailgraph/internal/buildinfo"
 	"mailgraph/internal/charts"
 	"mailgraph/internal/config"
 	"mailgraph/internal/rrd"
@@ -45,6 +44,9 @@ const periodPageTmpl = `<!DOCTYPE html>
   <a href="https://mailgraph.schweikert.ch/">Mailgraph</a> {{.Version}} (Go port)
 </body>
 </html>`
+
+// AppVersion is the application version shown in the web footer.
+var AppVersion = "dev"
 
 type periodPageData struct {
 	Hostname     string
@@ -131,7 +133,7 @@ func (s *Server) renderPeriodPage(c *echo.Context, index int) error {
 
 	data := periodPageData{
 		Hostname:     s.cfg.Hostname,
-		Version:      buildinfo.Version,
+		Version:      AppVersion,
 		CurrentIndex: index,
 		CurrentTitle: charts.Periods[index].Title,
 	}
