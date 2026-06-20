@@ -264,7 +264,8 @@ func formatAxisLabel(period Period, t time.Time) string {
 	case "today", "last-day":
 		return t.Format("15:04")
 	case "last-week", "last-2-weeks":
-		return t.Format("Mon 01-02")
+		// Match legacy mailgraph.cgi / rrdtool graph labels (e.g. "Mon 15 Jun").
+		return t.Format("Mon 2 Jan")
 	case "last-year", "last-2-years":
 		return t.Format("2006-01-02")
 	default:
@@ -272,14 +273,29 @@ func formatAxisLabel(period Period, t time.Time) string {
 	}
 }
 
-func buildSeries(points []rrd.DataPoint, period Period, keys ...string) ([]string, [][]opts.LineData) {
+func axisLabelsFor(points []rrd.DataPoint, period Period) []string {
 	labels := make([]string, len(points))
+	dedupeDay := period.Slug == "last-week" || period.Slug == "last-2-weeks"
+	var lastDay string
+	for i, p := range points {
+		day := p.Timestamp.Format("2006-01-02")
+		if dedupeDay && day == lastDay {
+			labels[i] = ""
+			continue
+		}
+		lastDay = day
+		labels[i] = formatAxisLabel(period, p.Timestamp)
+	}
+	return labels
+}
+
+func buildSeries(points []rrd.DataPoint, period Period, keys ...string) ([]string, [][]opts.LineData) {
+	labels := axisLabelsFor(points, period)
 	series := make([][]opts.LineData, len(keys))
 	for i := range keys {
 		series[i] = make([]opts.LineData, len(points))
 	}
 	for i, p := range points {
-		labels[i] = formatAxisLabel(period, p.Timestamp)
 		for j, key := range keys {
 			series[j][i] = opts.LineData{Value: rrd.RatePerMinute(p.Values[key])}
 		}
@@ -288,11 +304,7 @@ func buildSeries(points []rrd.DataPoint, period Period, keys ...string) ([]strin
 }
 
 func labelsFrom(points []rrd.DataPoint, period Period) []string {
-	labels := make([]string, len(points))
-	for i, p := range points {
-		labels[i] = formatAxisLabel(period, p.Timestamp)
-	}
-	return labels
+	return axisLabelsFor(points, period)
 }
 
 func valuesFor(points []rrd.DataPoint, key string) []opts.LineData {

@@ -61,14 +61,24 @@ The root `/` redirects to `/today`.
 | `/mailgraph.css` | CSS embedded in the binary |
 | `/chart?period=N&type=T` | Single chart HTML (`T` = `n`/`e`/`s`/`d`/`k`/`v`) |
 
-Horizontal axis labels (server local time, format varies by period):
+### Horizontal axis labels
 
-| Period | Axis label format | Example |
-|--------|-------------------|---------|
-| Today, Last Day | hour:minute | `19:48` |
-| Last Week, Last 2 Weeks | weekday + date | `Mon 06-15` |
-| Last Month, Last 2 Month | month-day | `06-15` |
-| Last Year, Last 2 Years | full date | `2026-06-15` |
+All labels use the **server local timezone**. Formats follow the legacy Perl `mailgraph.cgi` / `rrdtool graph` behaviour where possible.
+
+| Period | Axis label format | Example | Notes |
+|--------|-------------------|---------|-------|
+| Today, Last Day | hour:minute | `19:48` | One label per RRD sample (~8 min) |
+| Last Week, Last 2 Weeks | weekday + day + month | `Mon 15 Jun` | **One label per calendar day** (like `rrdtool` PNG graphs) |
+| Last Month, Last 2 Month | month-day | `06-15` | |
+| Last Year, Last 2 Years | full date | `2026-06-15` | |
+
+#### Legacy Perl (`mailgraph.cgi`)
+
+The original CGI did **not** set axis formats in Perl code. It called `RRDs::graph` with `--start -$range` and let **rrdtool** choose the labels. For **Last Week**, the PNG graphs show one tick per day, for example:
+
+`Sun 14 Jun` · `Mon 15 Jun` · `Tue 16 Jun` · … · `Sat 20 Jun`
+
+The Go port uses the same weekday + date + month style for week views. Tooltips on every sample still show the exact time when you hover a point.
 
 ---
 
