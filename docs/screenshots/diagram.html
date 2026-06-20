@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 45%, #0f766e 100%);
+    color: #f8fafc;
+    padding: 48px 56px;
+  }
+  .title { text-align: center; margin-bottom: 12px; }
+  .title h1 { font-size: 52px; font-weight: 700; letter-spacing: -1px; }
+  .title p { font-size: 24px; color: #cbd5e1; margin-top: 8px; }
+  .flow {
+    display: flex; align-items: stretch; justify-content: space-between;
+    gap: 28px; margin-top: 48px; height: 520px;
+  }
+  .box {
+    flex: 1; border-radius: 20px; padding: 28px 24px;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(8px);
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .box h2 { font-size: 26px; margin-bottom: 16px; color: #7dd3fc; }
+  .box ul { list-style: none; font-size: 19px; line-height: 1.7; color: #e2e8f0; }
+  .box li::before { content: "→ "; color: #34d399; font-weight: bold; }
+  .icon {
+    width: 72px; height: 72px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; margin-bottom: 18px;
+    background: rgba(255,255,255,0.12);
+  }
+  .arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 64px; flex-shrink: 0; font-size: 48px; color: #fbbf24;
+    align-self: center;
+  }
+  .box.mailgraph { border-color: #34d399; background: rgba(16,185,129,0.15); }
+  .box.mailgraph h2 { color: #6ee7b7; }
+  .box.browser { border-color: #60a5fa; background: rgba(59,130,246,0.15); }
+  .box.browser h2 { color: #93c5fd; }
+  .bottom {
+    margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 20px;
+  }
+  .chip {
+    background: rgba(255,255,255,0.1); border-radius: 14px;
+    padding: 18px 20px; text-align: center; border: 1px solid rgba(255,255,255,0.15);
+  }
+  .chip strong { display: block; font-size: 22px; color: #fde68a; margin-bottom: 6px; }
+  .chip span { font-size: 17px; color: #cbd5e1; }
+  .footer {
+    margin-top: 36px; text-align: center; font-size: 18px; color: #94a3b8;
+  }
+  .badge {
+    position: absolute; top: 16px; right: 16px;
+    background: #059669; color: white; font-size: 13px;
+    padding: 4px 10px; border-radius: 999px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <div class="title">
+    <h1>Como o Mailgraph funciona</h1>
+    <p>Do log do Postfix aos gráficos no navegador — sem Apache, sem Perl</p>
+  </div>
+
+  <div class="flow">
+    <div class="box">
+      <div class="icon">📬</div>
+      <h2>1. Servidor de e-mail</h2>
+      <ul>
+        <li>Postfix recebe e envia e-mails</li>
+        <li>Gera linhas no log (syslog)</li>
+        <li>Arquivo: mail.log</li>
+      </ul>
+    </div>
+
+    <div class="arrow">▶</div>
+
+    <div class="box mailgraph">
+      <span class="badge">1 binário Go</span>
+      <div class="icon">⚙️</div>
+      <h2>2. Mailgraph</h2>
+      <ul>
+        <li>Lê o log em tempo real</li>
+        <li>Conta envios, SPF, spam…</li>
+        <li>Grava em arquivos RRD</li>
+      </ul>
+    </div>
+
+    <div class="arrow">▶</div>
+
+    <div class="box">
+      <div class="icon">💾</div>
+      <h2>3. Histórico (RRD)</h2>
+      <ul>
+        <li>Dados por minuto</li>
+        <li>Compatível com Mailgraph antigo</li>
+        <li>Persiste após reinício</li>
+      </ul>
+    </div>
+
+    <div class="arrow">▶</div>
+
+    <div class="box browser">
+      <div class="icon">📊</div>
+      <h2>4. Navegador</h2>
+      <ul>
+        <li>Gráficos interativos</li>
+        <li>/today, /last-week…</li>
+        <li>Atualiza a cada 5 min</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="chip"><strong>Docker</strong><span>~31 MB Alpine</span></div>
+    <div class="chip"><strong>Binário</strong><span>~3,2 MB UPX</span></div>
+    <div class="chip"><strong>HTTPS + Auth</strong><span>Opcional</span></div>
+    <div class="chip"><strong>SPF · DMARC · DKIM</strong><span>Incluído</span></div>
+  </div>
+
+  <div class="footer">mailgraph server → http://seu-servidor:8080/today</div>
+</body>
+</html>
