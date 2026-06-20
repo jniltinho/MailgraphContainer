@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <style>
@@ -66,31 +66,31 @@
 </head>
 <body>
   <div class="title">
-    <h1>Como o Mailgraph funciona</h1>
-    <p>Do log do Postfix aos gráficos no navegador — sem Apache, sem Perl</p>
+    <h1>How Mailgraph works</h1>
+    <p>From Postfix logs to browser charts — no Apache, no Perl</p>
   </div>
 
   <div class="flow">
     <div class="box">
       <div class="icon">📬</div>
-      <h2>1. Servidor de e-mail</h2>
+      <h2>1. Mail server</h2>
       <ul>
-        <li>Postfix recebe e envia e-mails</li>
-        <li>Gera linhas no log (syslog)</li>
-        <li>Arquivo: mail.log</li>
+        <li>Postfix sends and receives mail</li>
+        <li>Writes syslog lines</li>
+        <li>File: mail.log</li>
       </ul>
     </div>
 
     <div class="arrow">▶</div>
 
     <div class="box mailgraph">
-      <span class="badge">1 binário Go</span>
+      <span class="badge">1 Go binary</span>
       <div class="icon">⚙️</div>
       <h2>2. Mailgraph</h2>
       <ul>
-        <li>Lê o log em tempo real</li>
-        <li>Conta envios, SPF, spam…</li>
-        <li>Grava em arquivos RRD</li>
+        <li>Reads the log in real time</li>
+        <li>Counts sent, SPF, spam…</li>
+        <li>Stores data in RRD files</li>
       </ul>
     </div>
 
@@ -98,11 +98,11 @@
 
     <div class="box">
       <div class="icon">💾</div>
-      <h2>3. Histórico (RRD)</h2>
+      <h2>3. History (RRD)</h2>
       <ul>
-        <li>Dados por minuto</li>
-        <li>Compatível com Mailgraph antigo</li>
-        <li>Persiste após reinício</li>
+        <li>One-minute buckets</li>
+        <li>Legacy Mailgraph compatible</li>
+        <li>Survives restarts</li>
       </ul>
     </div>
 
@@ -110,22 +110,22 @@
 
     <div class="box browser">
       <div class="icon">📊</div>
-      <h2>4. Navegador</h2>
+      <h2>4. Browser</h2>
       <ul>
-        <li>Gráficos interativos</li>
+        <li>Interactive charts</li>
         <li>/today, /last-week…</li>
-        <li>Atualiza a cada 5 min</li>
+        <li>Refreshes every 5 min</li>
       </ul>
     </div>
   </div>
 
   <div class="bottom">
     <div class="chip"><strong>Docker</strong><span>~31 MB Alpine</span></div>
-    <div class="chip"><strong>Binário</strong><span>~3,2 MB UPX</span></div>
-    <div class="chip"><strong>HTTPS + Auth</strong><span>Opcional</span></div>
-    <div class="chip"><strong>SPF · DMARC · DKIM</strong><span>Incluído</span></div>
+    <div class="chip"><strong>Binary</strong><span>~3.2 MB UPX</span></div>
+    <div class="chip"><strong>HTTPS + Auth</strong><span>Optional</span></div>
+    <div class="chip"><strong>SPF · DMARC · DKIM</strong><span>Included</span></div>
   </div>
 
-  <div class="footer">mailgraph server → http://seu-servidor:8080/today</div>
+  <div class="footer">mailgraph server → http://your-server:8080/today</div>
 </body>
 </html>

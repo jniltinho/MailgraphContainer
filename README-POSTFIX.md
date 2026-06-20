@@ -1,41 +1,41 @@
-# Mailgraph em servidor Postfix
+# Mailgraph on a Postfix server
 
-Guia para instalar e executar o Mailgraph (versão Go) diretamente no mesmo servidor que roda o **Postfix**, ou via Docker montando o log local.
+Guide to install and run Mailgraph (Go edition) on the same host as **Postfix**, or via Docker with the local log mounted in.
 
-O Mailgraph lê o log de e-mail, grava estatísticas em arquivos RRD e exibe gráficos interativos na raiz do servidor web (`http://<servidor>:8080/today` ou `https://<servidor>:8443/today` com TLS). A raiz `/` redireciona para `/today`.
+Mailgraph reads the mail log, stores statistics in RRD files, and serves interactive charts at the web root (`http://<server>:8080/today` or `https://<server>:8443/today` with TLS). The root `/` redirects to `/today`.
 
 ---
 
-## Requisitos
+## Requirements
 
-| Componente | Versão / detalhe |
-|------------|------------------|
-| Postfix | com logs em formato syslog |
-| Go (somente para compilar) | 1.26+ |
-| rrdtool | 1.7+ (obrigatório em runtime) |
-| SO | Debian / Ubuntu (recomendado), ou outra distro com Postfix + rrdtool |
+| Component | Version / detail |
+|-----------|------------------|
+| Postfix | logs in syslog format |
+| Go (build only) | 1.26+ |
+| rrdtool | 1.7+ (required at runtime) |
+| OS | Debian / Ubuntu (recommended), or any distro with Postfix + rrdtool |
 
-Gráficos suportados (quando os respectivos serviços geram log):
+Supported charts (when the respective services write logs):
 
-- enviados / recebidos / rejeitados / bounced
+- sent / received / rejected / bounced
 - SPF (`policyd-spf`)
 - DMARC (`opendmarc`)
 - DKIM (`opendkim`)
-- vírus / spam (Amavis, ClamAV, SpamAssassin, etc.)
-- logins Dovecot (se usar Dovecot no mesmo host)
+- virus / spam (Amavis, ClamAV, SpamAssassin, etc.)
+- Dovecot logins (if Dovecot runs on the same host)
 
 ---
 
-## 1. Preparar o log do Postfix
+## 1. Prepare the Postfix log
 
-O Mailgraph precisa de um arquivo de log legível com entradas do Postfix (e opcionalmente Dovecot, Amavis, OpenDKIM, etc.).
+Mailgraph needs a readable log file with Postfix entries (and optionally Dovecot, Amavis, OpenDKIM, etc.).
 
-### Debian / Ubuntu com rsyslog
+### Debian / Ubuntu with rsyslog
 
-Crie `/etc/rsyslog.d/mailgraph.conf`:
+Create `/etc/rsyslog.d/mailgraph.conf`:
 
 ```
-# Log dedicado para o Mailgraph
+# Dedicated log for Mailgraph
 $template MailgraphFormat,"%TIMESTAMP% %HOSTNAME% %syslogtag%%msg%\n"
 
 if $programname startswith 'postfix'
@@ -50,7 +50,7 @@ then {
 }
 ```
 
-Aplique e verifique:
+Apply and verify:
 
 ```bash
 sudo mkdir -p /var/log/mail
@@ -58,59 +58,59 @@ sudo chown syslog:adm /var/log/mail
 sudo chmod 750 /var/log/mail
 sudo systemctl restart rsyslog
 
-# Deve aparecer linhas do Postfix após enviar/receber um e-mail de teste
+# Postfix lines should appear after sending/receiving a test email
 sudo tail -f /var/log/mail/mail.log
 ```
 
-Exemplo de linha esperada:
+Expected line example:
 
 ```
 Jun 20 10:00:01 mail.example.com postfix/smtpd[1234]: ABCD: client=unknown[203.0.113.10]
 ```
 
-### Caminhos de log alternativos
+### Alternative log paths
 
-| Ambiente | Caminho comum |
-|----------|---------------|
-| rsyslog dedicado | `/var/log/mail/mail.log` |
-| syslog geral | `/var/log/syslog` ou `/var/log/messages` |
-| journald apenas | configure rsyslog ou redirecione para arquivo (recomendado) |
+| Environment | Common path |
+|-------------|-------------|
+| Dedicated rsyslog | `/var/log/mail/mail.log` |
+| General syslog | `/var/log/syslog` or `/var/log/messages` |
+| journald only | configure rsyslog or redirect to a file (recommended) |
 
-Se usar outro caminho, ajuste `log.file` em `config.toml` ou passe `--logfile` ao subcomando `server`.
+If you use another path, set `log.file` in `config.toml` or pass `--logfile` to the `server` subcommand.
 
 ---
 
-## 2. Instalação do binário (nativo)
+## 2. Native binary installation
 
-### 2.1 Dependências
+### 2.1 Dependencies
 
 ```bash
 sudo apt update
 sudo apt install -y rrdtool git
 ```
 
-### 2.2 Compilar
+### 2.2 Build
 
 ```bash
 git clone https://github.com/jniltinho/MailgraphContainer.git
 cd MailgraphContainer
 
 make build
-# ou: go build -trimpath -ldflags="-s -w" -o mailgraph .
+# or: go build -trimpath -ldflags="-s -w" -o mailgraph .
 
 sudo install -m 755 bin/mailgraph /usr/local/bin/mailgraph
 ```
 
-### 2.3 Diretórios de dados
+### 2.3 Data directories
 
 ```bash
 sudo mkdir -p /var/lib/mailgraph/rrd
 sudo chown mailgraph:mailgraph /var/lib/mailgraph/rrd 2>/dev/null || sudo chown root:root /var/lib/mailgraph/rrd
 ```
 
-Na primeira execução, se não existir RRD, o histórico atual de `/var/log/mail/mail.log` é processado automaticamente.
+On first run, if no RRD exists yet, the current history in `/var/log/mail/mail.log` is imported automatically.
 
-### 2.4 Arquivo de configuração (recomendado)
+### 2.4 Configuration file (recommended)
 
 ```bash
 sudo mkdir -p /etc/mailgraph
@@ -119,7 +119,7 @@ sudo cp config_*.toml /etc/mailgraph/config.toml
 sudo nano /etc/mailgraph/config.toml
 ```
 
-Exemplo para Postfix em produção:
+Example for production Postfix:
 
 ```toml
 [log]
@@ -148,11 +148,11 @@ realm = "Mailgraph"
 ignore_localhost = true
 ```
 
-Prioridade: flags > `MAILGRAPH_*` > `config.toml` > padrões. Ver [README.md](README.md#configuração) para a lista completa.
+Priority: flags > `MAILGRAPH_*` > `config.toml` > defaults. See [README.md](README.md#configuration) for the full list.
 
 ---
 
-## 3. Executar manualmente (teste)
+## 3. Manual run (testing)
 
 ```bash
 sudo mailgraph server \
@@ -162,24 +162,24 @@ sudo mailgraph server \
   --listen=127.0.0.1:8080
 ```
 
-Com `config.toml` em `/etc/mailgraph/`:
+With `config.toml` in `/etc/mailgraph/`:
 
 ```bash
 sudo mailgraph server
 ```
 
-Abra no navegador (via SSH tunnel ou proxy):
+Open in the browser (via SSH tunnel or reverse proxy):
 
 ```
 http://127.0.0.1:8080/today
 ```
 
-Períodos disponíveis (cada um com URL própria):
+Available periods (each with its own URL):
 
-| Período | URL |
-|---------|-----|
-| Today (dia atual, desde 00:00) | `/today` |
-| Last Day (últimas 24 h) | `/last-day` |
+| Period | URL |
+|--------|-----|
+| Today (current day since 00:00) | `/today` |
+| Last Day (rolling 24 h) | `/last-day` |
 | Last Week | `/last-week` |
 | Last 2 Weeks | `/last-2-weeks` |
 | Last Month | `/last-month` |
@@ -187,7 +187,7 @@ Períodos disponíveis (cada um com URL própria):
 | Last Year | `/last-year` |
 | Last 2 Years | `/last-2-years` |
 
-### Importar log histórico sem subir o servidor web
+### Import historical log without starting the web server
 
 ```bash
 sudo mailgraph cat \
@@ -197,27 +197,27 @@ sudo mailgraph cat \
   --verbose
 ```
 
-### Opções úteis em Postfix
+### Useful Postfix options
 
-| Flag / config | Quando usar |
+| Flag / config | When to use |
 |---------------|-------------|
-| `--ignore-localhost` / `filter.ignore_localhost` | Ignora tráfego de/para `127.0.0.1` (scanners locais, Amavis em loopback) |
-| `--ignore-host=HOST` / `filter.ignore_hosts` | Ignora relay de um host específico (regex, repetível) |
-| `--rbl-is-spam` / `filter.rbl_is_spam` | Conta rejeições RBL como spam |
-| `--virbl-is-virus` / `filter.virbl_is_virus` | Conta rejeições VIRBL como vírus |
-| `--host=mail.example.com` / `log.host_filter` | Filtra apenas entradas de um hostname no syslog |
-| `--listen=127.0.0.1:8080` / `server.listen` | Escuta só em localhost (mais seguro) |
-| `--tls` / `server.tls_enabled` | Habilita HTTPS com certificado PEM |
-| `--tls-cert` / `server.tls_cert` | Caminho do certificado TLS |
-| `--tls-key` / `server.tls_key` | Caminho da chave privada TLS |
-| `--auth` / `auth.enabled` | Habilita HTTP Basic Auth |
-| `--auth-user` / `auth.username` | Usuário da autenticação |
-| `--auth-pass` / `auth.password` | Senha da autenticação |
-| `--auth-realm` / `auth.realm` | Realm do prompt de login |
+| `--ignore-localhost` / `filter.ignore_localhost` | Ignore traffic to/from `127.0.0.1` (local scanners, Amavis on loopback) |
+| `--ignore-host=HOST` / `filter.ignore_hosts` | Ignore relay from a specific host (regex, repeatable) |
+| `--rbl-is-spam` / `filter.rbl_is_spam` | Count RBL rejections as spam |
+| `--virbl-is-virus` / `filter.virbl_is_virus` | Count VIRBL rejections as virus |
+| `--host=mail.example.com` / `log.host_filter` | Filter syslog entries by hostname only |
+| `--listen=127.0.0.1:8080` / `server.listen` | Listen on localhost only (more secure) |
+| `--tls` / `server.tls_enabled` | Enable HTTPS with a PEM certificate |
+| `--tls-cert` / `server.tls_cert` | TLS certificate path |
+| `--tls-key` / `server.tls_key` | TLS private key path |
+| `--auth` / `auth.enabled` | Enable HTTP Basic Auth |
+| `--auth-user` / `auth.username` | Auth username |
+| `--auth-pass` / `auth.password` | Auth password |
+| `--auth-realm` / `auth.realm` | Login prompt realm |
 
 ### HTTP Basic Auth
 
-Protege a interface web com autenticação simples do Echo:
+Protects the web UI with Echo's built-in authentication:
 
 ```toml
 [auth]
@@ -231,11 +231,11 @@ realm = "Mailgraph"
 sudo mailgraph server --config /etc/mailgraph/config.toml
 ```
 
-Combine com TLS para expor publicamente com mais segurança.
+Combine with TLS when exposing the service publicly.
 
-### HTTPS com TLS
+### HTTPS with TLS
 
-Para testes locais:
+For local testing:
 
 ```bash
 make certs
@@ -246,7 +246,7 @@ sudo mailgraph server \
   --tls-key=ssl/server.key
 ```
 
-Exemplo com certificado Let's Encrypt:
+Example with a Let's Encrypt certificate:
 
 ```toml
 [server]
@@ -261,9 +261,9 @@ tls_key = "/etc/letsencrypt/live/mail.example.com/privkey.pem"
 sudo mailgraph server --config /etc/mailgraph/config.toml
 ```
 
-Acesso: `https://mail.example.com:8443/`
+Access: `https://mail.example.com:8443/today`
 
-Exemplo com Amavis em localhost:
+Example with Amavis on localhost:
 
 ```bash
 sudo mailgraph server \
@@ -276,9 +276,9 @@ sudo mailgraph server \
 
 ---
 
-## 4. Serviço systemd (produção)
+## 4. systemd service (production)
 
-Crie `/etc/systemd/system/mailgraph.service`:
+Create `/etc/systemd/system/mailgraph.service`:
 
 ```ini
 [Unit]
@@ -299,7 +299,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Alternativa sem arquivo de config (flags inline):
+Alternative without a config file (inline flags):
 
 ```ini
 ExecStart=/usr/local/bin/mailgraph server \
@@ -310,7 +310,7 @@ ExecStart=/usr/local/bin/mailgraph server \
   --listen=127.0.0.1:8080
 ```
 
-Com TLS no systemd (certificado no host):
+With TLS in systemd (certificate on the host):
 
 ```ini
 ExecStart=/usr/local/bin/mailgraph server \
@@ -323,11 +323,11 @@ ExecStart=/usr/local/bin/mailgraph server \
   --tls-key=/etc/letsencrypt/live/mail.example.com/privkey.pem
 ```
 
-Recomendado para exposição pública: use `config.toml` com TLS e `[auth]` habilitado (seção 2.4).
+For public exposure, use `config.toml` with TLS and `[auth]` enabled (section 2.4).
 
-Substitua `mail.example.com` pelo FQDN do seu servidor.
+Replace `mail.example.com` with your server's FQDN.
 
-Ative o serviço:
+Enable the service:
 
 ```bash
 sudo systemctl daemon-reload
@@ -335,7 +335,7 @@ sudo systemctl enable --now mailgraph
 sudo systemctl status mailgraph
 ```
 
-Logs do serviço:
+Service logs:
 
 ```bash
 sudo journalctl -u mailgraph -f
@@ -343,9 +343,9 @@ sudo journalctl -u mailgraph -f
 
 ---
 
-## 5. Instalação via Docker no mesmo servidor Postfix
+## 5. Docker on the same Postfix host
 
-Se o Postfix já roda no host, monte o log e o diretório RRD:
+If Postfix already runs on the host, mount the log and RRD directory:
 
 ```bash
 sudo mkdir -p /var/lib/mailgraph/rrd
@@ -360,7 +360,7 @@ docker run --rm -d \
   davidullrich/mailgraph:latest
 ```
 
-O entrypoint do container executa `mailgraph server` automaticamente. Para sobrescrever:
+The container entrypoint runs `mailgraph server` automatically. To override:
 
 ```bash
 docker run --rm -d \
@@ -373,9 +373,9 @@ docker run --rm -d \
   davidullrich/mailgraph:latest
 ```
 
-Gráficos em `http://127.0.0.1:8080/today`.
+Charts at `http://127.0.0.1:8080/today`.
 
-Com TLS no Docker:
+With TLS in Docker:
 
 ```bash
 docker run --rm -d \
@@ -393,7 +393,7 @@ docker run --rm -d \
   davidullrich/mailgraph:latest
 ```
 
-Com Basic Auth no Docker:
+With Basic Auth in Docker:
 
 ```bash
 docker run --rm -d \
@@ -426,96 +426,96 @@ services:
 
 ---
 
-## 6. Verificação
+## 6. Verification
 
 ```bash
-# Serviço ativo
+# Service running
 systemctl is-active mailgraph
 
-# Log do Postfix chegando
+# Postfix log is being written
 sudo tail -5 /var/log/mail/mail.log
 
-# RRDs sendo criados/atualizados
+# RRD files created/updated
 ls -la /var/lib/mailgraph/rrd/
 # mailgraph.rrd  mailgraph_virus.rrd  mailgraph_dovecot.rrd
 
-# Interface web (HTTP)
+# Web UI (HTTP)
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/
-# Esperado: 200 (ou 401 se auth habilitado)
+# Expected: 302 (redirect to /today) or 401 if auth is enabled
 
-# Interface web com Basic Auth
-curl -s -o /dev/null -w "%{http_code}\n" -u admin:secret http://127.0.0.1:8080/
-# Esperado: 200
+# Web UI with Basic Auth
+curl -s -o /dev/null -w "%{http_code}\n" -u admin:secret http://127.0.0.1:8080/today
+# Expected: 200
 
-# Interface web (HTTPS, se TLS habilitado)
-curl -sk -o /dev/null -w "%{http_code}\n" https://127.0.0.1:8443/
-# Esperado: 200
+# Web UI (HTTPS, if TLS enabled)
+curl -sk -o /dev/null -w "%{http_code}\n" https://127.0.0.1:8443/today
+# Expected: 200
 ```
 
-Envie um e-mail de teste (entrada e saída) e aguarde 1–2 minutos; os gráficos atualizam automaticamente a cada 5 minutos na página.
+Send a test email (inbound and outbound) and wait 1–2 minutes; charts refresh automatically every 5 minutes on the page.
 
 ---
 
-## 7. Solução de problemas
+## 7. Troubleshooting
 
-### Gráficos vazios
+### Empty charts
 
-1. Confirme que `/var/log/mail/mail.log` recebe linhas `postfix/...`
-2. Verifique permissão de leitura do usuário que roda o Mailgraph
-3. Processe o log manualmente com `mailgraph cat --verbose` e observe erros de `rrdtool`
-4. Confirme que `rrdtool` está instalado: `which rrdtool`
+1. Confirm `/var/log/mail/mail.log` receives `postfix/...` lines
+2. Check read permissions for the user running Mailgraph
+3. Process the log manually with `mailgraph cat --verbose` and watch for `rrdtool` errors
+4. Confirm `rrdtool` is installed: `which rrdtool`
 
-### RRD parou de atualizar
+### RRD stopped updating
 
-- Timestamps no log não podem retroceder (ajuste de relógio ou ano errado → use `--year` ou `log.year`)
-- Inspecione o último timestamp: `rrdtool last /var/lib/mailgraph/rrd/mailgraph.rrd`
+- Log timestamps must not go backwards (clock skew or wrong year → use `--year` or `log.year`)
+- Inspect the latest timestamp: `rrdtool last /var/lib/mailgraph/rrd/mailgraph.rrd`
 
-### Só aparece tráfego enviado, nada recebido
+### Only sent traffic, nothing received
 
-- Fetchmail ou relay local pode usar `127.0.0.1` → use `--ignore-localhost` ou ajuste o `smtphost` no fetchmail
+- Fetchmail or a local relay may use `127.0.0.1` → use `--ignore-localhost` or adjust fetchmail's `smtphost`
 
-### SPF / DKIM / DMARC sem dados
+### No SPF / DKIM / DMARC data
 
-- O log precisa conter entradas de `policyd-spf`, `opendkim` e `opendmarc`
-- Inclua esses programas no filtro do rsyslog (seção 1)
+- The log must contain entries from `policyd-spf`, `opendkim`, and `opendmarc`
+- Include those programs in the rsyslog filter (section 1)
 
-### Porta exposta na internet
+### Port exposed to the internet
 
-- Prefira `server.listen = "127.0.0.1:8080"` e acesse via SSH tunnel ou VPN
-- Se expor publicamente, use TLS (`server.tls_enabled = true`) com certificado válido
-- Habilite também `auth.enabled = true` com usuário e senha fortes
-- Não exponha estatísticas de e-mail publicamente sem proteção
+- Prefer `server.listen = "127.0.0.1:8080"` and access via SSH tunnel or VPN
+- If exposing publicly, use TLS (`server.tls_enabled = true`) with a valid certificate
+- Also enable `auth.enabled = true` with a strong username and password
+- Do not expose mail statistics publicly without protection
 
-### Erro ao iniciar com TLS
+### TLS startup error
 
-- Confirme que `tls_cert` e `tls_key` existem e são legíveis pelo usuário do serviço
-- Certificado e chave devem estar em formato PEM
-- `tls_enabled = true` exige ambos os caminhos preenchidos
+- Confirm `tls_cert` and `tls_key` exist and are readable by the service user
+- Certificate and key must be in PEM format
+- `tls_enabled = true` requires both paths to be set
 
-### Erro 401 na interface web
+### 401 error on the web UI
 
-- `auth.enabled = true` exige usuário e senha no navegador ou em `curl -u user:pass`
-- Confirme `auth.username` e `auth.password` em `config.toml` ou nas variáveis `MAILGRAPH_AUTH_*`
+- `auth.enabled = true` requires credentials in the browser or `curl -u user:pass`
+- Confirm `auth.username` and `auth.password` in `config.toml` or `MAILGRAPH_AUTH_*` variables
 
 ---
 
-## 8. Referência rápida de comandos
+## 8. Quick command reference
 
 ```bash
-# Ajuda
+# Help
 mailgraph --help
 mailgraph server --help
 
-# Versão
+# Version
 mailgraph version
 
-# Rodar em foreground (debug)
+# Run in foreground (debug)
 sudo mailgraph server --verbose \
   --logfile=/var/log/mail/mail.log \
   --daemon-rrd=/var/lib/mailgraph/rrd \
   --listen=127.0.0.1:8080
 
-# Reprocessar log inteiro (sem servidor web)
+# Reprocess the full log (no web server)
 sudo mailgraph cat \
   --logfile=/var/log/mail/mail.log \
   --daemon-rrd=/var/lib/mailgraph/rrd \
@@ -528,14 +528,14 @@ sudo mailgraph server \
   --auth-pass=secret \
   --listen=127.0.0.1:8080
 
-# HTTPS com TLS
+# HTTPS with TLS
 sudo mailgraph server \
   --listen=:8443 \
   --tls \
   --tls-cert=/etc/letsencrypt/live/mail.example.com/fullchain.pem \
   --tls-key=/etc/letsencrypt/live/mail.example.com/privkey.pem
 
-# Gerar config.toml
+# Generate config.toml
 mailgraph generate-config
 ```
 
@@ -543,6 +543,6 @@ mailgraph generate-config
 
 ## Links
 
-- [Mailgraph original](https://mailgraph.schweikert.ch/)
-- [README Docker](README.md) — uso geral do container
-- Patch SPF/DMARC/DKIM: [kernel-error.de](https://www.kernel-error.de/2014/04/22/mailgraph-graphen-um-spf-dmarc-und-dkim-erweitern/)
+- [Original Mailgraph](https://mailgraph.schweikert.ch/)
+- [Docker README](README.md) — general container usage
+- SPF/DMARC/DKIM patch: [kernel-error.de](https://www.kernel-error.de/2014/04/22/mailgraph-graphen-um-spf-dmarc-und-dkim-erweitern/)
