@@ -2,7 +2,7 @@
 
 Guia para instalar e executar o Mailgraph (versão Go) diretamente no mesmo servidor que roda o **Postfix**, ou via Docker montando o log local.
 
-O Mailgraph lê o log de e-mail, grava estatísticas em arquivos RRD e exibe gráficos interativos em `http://<servidor>:8080/mailgraph/`.
+O Mailgraph lê o log de e-mail, grava estatísticas em arquivos RRD e exibe gráficos interativos na raiz do servidor web (`http://<servidor>:8080/` ou `https://<servidor>:8443/` com TLS).
 
 ---
 
@@ -134,6 +134,15 @@ name = "mailgraph"
 [server]
 listen = "127.0.0.1:8080"
 hostname = "mail.example.com"
+tls_enabled = false
+tls_cert = ""
+tls_key = ""
+
+[auth]
+enabled = true
+username = "admin"
+password = "secret"
+realm = "Mailgraph"
 
 [filter]
 ignore_localhost = true
@@ -162,7 +171,7 @@ sudo mailgraph server
 Abra no navegador (via SSH tunnel ou proxy):
 
 ```
-http://127.0.0.1:8080/mailgraph/
+http://127.0.0.1:8080/
 ```
 
 ### Importar log histórico sem subir o servidor web
@@ -185,6 +194,50 @@ sudo mailgraph cat \
 | `--virbl-is-virus` / `filter.virbl_is_virus` | Conta rejeições VIRBL como vírus |
 | `--host=mail.example.com` / `log.host_filter` | Filtra apenas entradas de um hostname no syslog |
 | `--listen=127.0.0.1:8080` / `server.listen` | Escuta só em localhost (mais seguro) |
+| `--tls` / `server.tls_enabled` | Habilita HTTPS com certificado PEM |
+| `--tls-cert` / `server.tls_cert` | Caminho do certificado TLS |
+| `--tls-key` / `server.tls_key` | Caminho da chave privada TLS |
+| `--auth` / `auth.enabled` | Habilita HTTP Basic Auth |
+| `--auth-user` / `auth.username` | Usuário da autenticação |
+| `--auth-pass` / `auth.password` | Senha da autenticação |
+| `--auth-realm` / `auth.realm` | Realm do prompt de login |
+
+### HTTP Basic Auth
+
+Protege a interface web com autenticação simples do Echo:
+
+```toml
+[auth]
+enabled = true
+username = "admin"
+password = "secret"
+realm = "Mailgraph"
+```
+
+```bash
+sudo mailgraph server --config /etc/mailgraph/config.toml
+```
+
+Combine com TLS para expor publicamente com mais segurança.
+
+### HTTPS com TLS
+
+Exemplo com certificado Let's Encrypt:
+
+```toml
+[server]
+listen = ":8443"
+hostname = "mail.example.com"
+tls_enabled = true
+tls_cert = "/etc/letsencrypt/live/mail.example.com/fullchain.pem"
+tls_key = "/etc/letsencrypt/live/mail.example.com/privkey.pem"
+```
+
+```bash
+sudo mailgraph server --config /etc/mailgraph/config.toml
+```
+
+Acesso: `https://mail.example.com:8443/`
 
 Exemplo com Amavis em localhost:
 
@@ -232,6 +285,21 @@ ExecStart=/usr/local/bin/mailgraph server \
   --ignore-localhost \
   --listen=127.0.0.1:8080
 ```
+
+Com TLS no systemd (certificado no host):
+
+```ini
+ExecStart=/usr/local/bin/mailgraph server \
+  --logfile=/var/log/mail/mail.log \
+  --daemon-rrd=/var/lib/mailgraph/rrd \
+  --hostname=mail.example.com \
+  --listen=:8443 \
+  --tls \
+  --tls-cert=/etc/letsencrypt/live/mail.example.com/fullchain.pem \
+  --tls-key=/etc/letsencrypt/live/mail.example.com/privkey.pem
+```
+
+Recomendado para exposição pública: use `config.toml` com TLS e `[auth]` habilitado (seção 2.4).
 
 Substitua `mail.example.com` pelo FQDN do seu servidor.
 
@@ -281,7 +349,40 @@ docker run --rm -d \
   davidullrich/mailgraph:latest
 ```
 
-Gráficos em `http://127.0.0.1:8080/mailgraph/`.
+Gráficos em `http://127.0.0.1:8080/`.
+
+Com TLS no Docker:
+
+```bash
+docker run --rm -d \
+  --name mailgraph \
+  --restart unless-stopped \
+  -v /var/log/mail/mail.log:/var/log/mail/mail.log:ro \
+  -v /var/lib/mailgraph/rrd:/var/www/mailgraph/rrd \
+  -v /etc/letsencrypt/live/mail.example.com/fullchain.pem:/etc/ssl/certs/mailgraph.crt:ro \
+  -v /etc/letsencrypt/live/mail.example.com/privkey.pem:/etc/ssl/private/mailgraph.key:ro \
+  -e MAILGRAPH_SERVER_LISTEN=:8443 \
+  -e MAILGRAPH_SERVER_TLS_ENABLED=true \
+  -e MAILGRAPH_SERVER_TLS_CERT=/etc/ssl/certs/mailgraph.crt \
+  -e MAILGRAPH_SERVER_TLS_KEY=/etc/ssl/private/mailgraph.key \
+  -p 8443:8443 \
+  davidullrich/mailgraph:latest
+```
+
+Com Basic Auth no Docker:
+
+```bash
+docker run --rm -d \
+  --name mailgraph \
+  --restart unless-stopped \
+  -v /var/log/mail/mail.log:/var/log/mail/mail.log:ro \
+  -v /var/lib/mailgraph/rrd:/var/www/mailgraph/rrd \
+  -e MAILGRAPH_AUTH_ENABLED=true \
+  -e MAILGRAPH_AUTH_USERNAME=admin \
+  -e MAILGRAPH_AUTH_PASSWORD=secret \
+  -p 127.0.0.1:8080:8080 \
+  davidullrich/mailgraph:latest
+```
 
 ### Docker Compose
 
@@ -301,45 +402,7 @@ services:
 
 ---
 
-## 6. Expor com segurança (Nginx + HTTPS)
-
-Recomendado: Mailgraph escuta em `127.0.0.1:8080` e o Nginx faz proxy com autenticação.
-
-`/etc/nginx/sites-available/mailgraph`:
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name mail.example.com;
-
-    ssl_certificate     /etc/letsencrypt/live/mail.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/mail.example.com/privkey.pem;
-
-    auth_basic "Mailgraph";
-    auth_basic_user_file /etc/nginx/.htpasswd-mailgraph;
-
-    location /mailgraph/ {
-        proxy_pass http://127.0.0.1:8080/mailgraph/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-Crie o usuário de acesso:
-
-```bash
-sudo apt install apache2-utils
-sudo htpasswd -c /etc/nginx/.htpasswd-mailgraph admin
-sudo ln -s /etc/nginx/sites-available/mailgraph /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-Acesso: `https://mail.example.com/mailgraph/`
-
----
-
-## 7. Verificação
+## 6. Verificação
 
 ```bash
 # Serviço ativo
@@ -352,8 +415,16 @@ sudo tail -5 /var/log/mail/mail.log
 ls -la /var/lib/mailgraph/rrd/
 # mailgraph.rrd  mailgraph_virus.rrd  mailgraph_dovecot.rrd
 
-# Interface web
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/mailgraph/
+# Interface web (HTTP)
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/
+# Esperado: 200 (ou 401 se auth habilitado)
+
+# Interface web com Basic Auth
+curl -s -o /dev/null -w "%{http_code}\n" -u admin:secret http://127.0.0.1:8080/
+# Esperado: 200
+
+# Interface web (HTTPS, se TLS habilitado)
+curl -sk -o /dev/null -w "%{http_code}\n" https://127.0.0.1:8443/
 # Esperado: 200
 ```
 
@@ -361,7 +432,7 @@ Envie um e-mail de teste (entrada e saída) e aguarde 1–2 minutos; os gráfico
 
 ---
 
-## 8. Solução de problemas
+## 7. Solução de problemas
 
 ### Gráficos vazios
 
@@ -384,14 +455,27 @@ Envie um e-mail de teste (entrada e saída) e aguarde 1–2 minutos; os gráfico
 - O log precisa conter entradas de `policyd-spf`, `opendkim` e `opendmarc`
 - Inclua esses programas no filtro do rsyslog (seção 1)
 
-### Porta 8080 exposta na internet
+### Porta exposta na internet
 
-- Prefira `server.listen = "127.0.0.1:8080"` + Nginx/Traefik com TLS e autenticação
+- Prefira `server.listen = "127.0.0.1:8080"` e acesse via SSH tunnel ou VPN
+- Se expor publicamente, use TLS (`server.tls_enabled = true`) com certificado válido
+- Habilite também `auth.enabled = true` com usuário e senha fortes
 - Não exponha estatísticas de e-mail publicamente sem proteção
+
+### Erro ao iniciar com TLS
+
+- Confirme que `tls_cert` e `tls_key` existem e são legíveis pelo usuário do serviço
+- Certificado e chave devem estar em formato PEM
+- `tls_enabled = true` exige ambos os caminhos preenchidos
+
+### Erro 401 na interface web
+
+- `auth.enabled = true` exige usuário e senha no navegador ou em `curl -u user:pass`
+- Confirme `auth.username` e `auth.password` em `config.toml` ou nas variáveis `MAILGRAPH_AUTH_*`
 
 ---
 
-## 9. Referência rápida de comandos
+## 8. Referência rápida de comandos
 
 ```bash
 # Ajuda
@@ -412,6 +496,20 @@ sudo mailgraph cat \
   --logfile=/var/log/mail/mail.log \
   --daemon-rrd=/var/lib/mailgraph/rrd \
   --verbose
+
+# HTTP Basic Auth
+sudo mailgraph server \
+  --auth \
+  --auth-user=admin \
+  --auth-pass=secret \
+  --listen=127.0.0.1:8080
+
+# HTTPS com TLS
+sudo mailgraph server \
+  --listen=:8443 \
+  --tls \
+  --tls-cert=/etc/letsencrypt/live/mail.example.com/fullchain.pem \
+  --tls-key=/etc/letsencrypt/live/mail.example.com/privkey.pem
 
 # Gerar config.toml
 mailgraph generate-config

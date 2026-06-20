@@ -1,6 +1,7 @@
 package web
 
 import (
+	"crypto/subtle"
 	_ "embed"
 	"fmt"
 	"html/template"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 
 	"github.com/davidullrich/mailgraph/internal/charts"
 	"github.com/davidullrich/mailgraph/internal/buildinfo"
@@ -36,10 +38,27 @@ func New(cfg config.Config) *Server {
 }
 
 func (s *Server) Register(e *echo.Echo) {
-	e.GET("/mailgraph/", s.index)
-	e.GET("/mailgraph", s.index)
-	e.GET("/mailgraph/chart", s.chart)
-	e.GET("/mailgraph/mailgraph.css", s.css)
+	if s.cfg.AuthEnabled {
+		username := s.cfg.AuthUsername
+		password := s.cfg.AuthPassword
+		realm := s.cfg.AuthRealm
+		if realm == "" {
+			realm = "Mailgraph"
+		}
+
+		e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
+			Realm: realm,
+			Validator: func(c *echo.Context, user, pass string) (bool, error) {
+				userMatch := subtle.ConstantTimeCompare([]byte(user), []byte(username)) == 1
+				passMatch := subtle.ConstantTimeCompare([]byte(pass), []byte(password)) == 1
+				return userMatch && passMatch, nil
+			},
+		}))
+	}
+
+	e.GET("/", s.index)
+	e.GET("/chart", s.chart)
+	e.GET("/mailgraph.css", s.css)
 }
 
 func (s *Server) css(c *echo.Context) error {
@@ -75,7 +94,7 @@ func (s *Server) index(c *echo.Context) error {
   <title>Mail statistics for {{.Hostname}}</title>
   <meta http-equiv="refresh" content="300" />
   <meta http-equiv="pragma" content="no-cache" />
-  <link rel="stylesheet" href="/mailgraph/mailgraph.css" type="text/css" />
+  <link rel="stylesheet" href="/mailgraph.css" type="text/css" />
 </head>
 <body>
   <h1>Mail statistics for {{.Hostname}}</h1>
@@ -97,7 +116,7 @@ func (s *Server) index(c *echo.Context) error {
   <a href="https://mailgraph.schweikert.ch/">Mailgraph</a> {{.Version}} (Go port)
   <script>
   document.querySelectorAll('.chart').forEach(function(el) {
-    fetch('/mailgraph/chart?period=' + el.dataset.period + '&type=' + el.dataset.type)
+    fetch('/chart?period=' + el.dataset.period + '&type=' + el.dataset.type)
       .then(function(r) { return r.text(); })
       .then(function(html) { el.innerHTML = html; });
   });

@@ -29,6 +29,13 @@ type Config struct {
 	Serve           bool
 	ListenAddr      string
 	Hostname        string
+	TLSEnabled      bool
+	TLSCertFile     string
+	TLSKeyFile      string
+	AuthEnabled     bool
+	AuthUsername    string
+	AuthPassword    string
+	AuthRealm       string
 }
 
 func Default() Config {
@@ -44,6 +51,7 @@ func Default() Config {
 		ListenAddr:    ":8080",
 		Hostname:      hostname,
 		Serve:         true,
+		AuthRealm:     "Mailgraph",
 	}
 }
 
@@ -63,6 +71,13 @@ func SetDefaults() {
 	viper.SetDefault("server.listen", d.ListenAddr)
 	viper.SetDefault("server.hostname", d.Hostname)
 	viper.SetDefault("server.serve", d.Serve)
+	viper.SetDefault("server.tls_enabled", d.TLSEnabled)
+	viper.SetDefault("server.tls_cert", d.TLSCertFile)
+	viper.SetDefault("server.tls_key", d.TLSKeyFile)
+	viper.SetDefault("auth.enabled", d.AuthEnabled)
+	viper.SetDefault("auth.username", d.AuthUsername)
+	viper.SetDefault("auth.password", d.AuthPassword)
+	viper.SetDefault("auth.realm", d.AuthRealm)
 	viper.SetDefault("filter.ignore_localhost", d.IgnoreLocalhost)
 	viper.SetDefault("filter.ignore_hosts", d.IgnoreHosts)
 	viper.SetDefault("filter.rbl_is_spam", d.RBLIsSpam)
@@ -108,6 +123,13 @@ func Load() (Config, error) {
 		cfg.Hostname = v
 	}
 	cfg.Serve = viper.GetBool("server.serve")
+	cfg.TLSEnabled = viper.GetBool("server.tls_enabled")
+	cfg.TLSCertFile = viper.GetString("server.tls_cert")
+	cfg.TLSKeyFile = viper.GetString("server.tls_key")
+	cfg.AuthEnabled = viper.GetBool("auth.enabled")
+	cfg.AuthUsername = viper.GetString("auth.username")
+	cfg.AuthPassword = viper.GetString("auth.password")
+	cfg.AuthRealm = viper.GetString("auth.realm")
 
 	cfg.IgnoreLocalhost = viper.GetBool("filter.ignore_localhost")
 	cfg.IgnoreHosts = viper.GetStringSlice("filter.ignore_hosts")
@@ -117,6 +139,12 @@ func Load() (Config, error) {
 
 	if cfg.OnlyMailRRD && cfg.OnlyVirusRRD {
 		return cfg, fmt.Errorf("cannot use rrd.only_mail and rrd.only_virus together")
+	}
+	if cfg.TLSEnabled && (cfg.TLSCertFile == "" || cfg.TLSKeyFile == "") {
+		return cfg, fmt.Errorf("server.tls_cert and server.tls_key are required when TLS is enabled")
+	}
+	if cfg.AuthEnabled && (cfg.AuthUsername == "" || cfg.AuthPassword == "") {
+		return cfg, fmt.Errorf("auth.username and auth.password are required when auth is enabled")
 	}
 
 	return cfg, nil

@@ -7,6 +7,12 @@
 #   MAILGRAPH_LOG_FILE=/var/log/mail/mail.log
 #   MAILGRAPH_RRD_DIR=/var/lib/mailgraph/rrd
 #   MAILGRAPH_SERVER_LISTEN=:8080
+#   MAILGRAPH_SERVER_TLS_ENABLED=true
+#   MAILGRAPH_SERVER_TLS_CERT=/etc/ssl/certs/mailgraph.crt
+#   MAILGRAPH_SERVER_TLS_KEY=/etc/ssl/private/mailgraph.key
+#   MAILGRAPH_AUTH_ENABLED=true
+#   MAILGRAPH_AUTH_USERNAME=admin
+#   MAILGRAPH_AUTH_PASSWORD=secret
 
 [log]
 file = "/var/log/mail/mail.log"
@@ -29,6 +35,15 @@ log_file = "/var/log/mailgraph.log"
 listen = ":8080"
 hostname = ""
 serve = true
+tls_enabled = false
+tls_cert = ""
+tls_key = ""
+
+[auth]
+enabled = false
+username = ""
+password = ""
+realm = "Mailgraph"
 
 [filter]
 ignore_localhost = false

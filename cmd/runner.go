@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -59,8 +60,17 @@ func runServer(cfg config.Config) error {
 	srv := web.New(cfg)
 	srv.Register(e)
 
-	log.Printf("Mailgraph served at http://localhost%s/mailgraph/", cfg.ListenAddr)
-	return e.Start(cfg.ListenAddr)
+	sc := echo.StartConfig{Address: cfg.ListenAddr}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	if cfg.TLSEnabled {
+		log.Printf("Mailgraph served at https://localhost%s/", cfg.ListenAddr)
+		return sc.StartTLS(ctx, e, cfg.TLSCertFile, cfg.TLSKeyFile)
+	}
+
+	log.Printf("Mailgraph served at http://localhost%s/", cfg.ListenAddr)
+	return sc.Start(ctx, e)
 }
 
 func runCat(cfg config.Config) error {

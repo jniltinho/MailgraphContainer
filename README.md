@@ -26,12 +26,15 @@ Imagem Docker: [Docker Hub — davidullrich/mailgraph](https://hub.docker.com/r/
 - Gráficos: enviados/recebidos, erros, SPF, DMARC, DKIM, Dovecot, vírus/spam
 - Períodos: dia, semana, 2 semanas, mês, 2 meses, ano, 2 anos
 - Suporte a Postfix, Sendmail, Exim, Amavis, ClamAV, SpamAssassin e outros
+- HTTPS opcional via TLS nativo do Echo v5
+- HTTP Basic Auth opcional (middleware do Echo)
+- Interface web na raiz (`/`), sem prefixo `/mailgraph`
 
 ## Stack
 
 - **Go** 1.26
 - **Cobra** + **Viper** — CLI e configuração (`config.toml`, variáveis de ambiente)
-- **Echo** v5 — servidor HTTP
+- **Echo** v5 — servidor HTTP/HTTPS
 - **go-echarts** v2 — gráficos na web
 - **rrdtool** — armazenamento de séries temporais (runtime)
 - **UPX** — compressão do binário em builds de produção
@@ -61,7 +64,7 @@ mailgraph/              # scripts Perl originais (referência)
 ## CLI
 
 ```bash
-mailgraph server           # coletor + servidor HTTP (padrão no Docker)
+mailgraph server           # coletor + servidor HTTP/HTTPS (padrão no Docker)
 mailgraph cat              # processa o log uma vez e sai
 mailgraph version          # versão e build info
 mailgraph generate-config  # gera config.toml a partir do template embutido
@@ -100,9 +103,76 @@ name = "mailgraph"
 [server]
 listen = ":8080"
 hostname = "mail.example.com"
+tls_enabled = false
+tls_cert = ""
+tls_key = ""
+
+[auth]
+enabled = false
+username = ""
+password = ""
+realm = "Mailgraph"
 
 [filter]
 ignore_localhost = true
+```
+
+### HTTP Basic Auth
+
+```toml
+[auth]
+enabled = true
+username = "admin"
+password = "secret"
+realm = "Mailgraph"
+```
+
+Ou via flags:
+
+```bash
+mailgraph server \
+  --auth \
+  --auth-user=admin \
+  --auth-pass=secret
+```
+
+### HTTPS (TLS)
+
+Com certificado PEM (ex.: Let's Encrypt):
+
+```toml
+[server]
+listen = ":8443"
+tls_enabled = true
+tls_cert = "/etc/ssl/certs/mailgraph.crt"
+tls_key = "/etc/ssl/private/mailgraph.key"
+```
+
+Ou via flags:
+
+```bash
+mailgraph server \
+  --listen=:8443 \
+  --tls \
+  --tls-cert=/etc/ssl/certs/mailgraph.crt \
+  --tls-key=/etc/ssl/private/mailgraph.key
+```
+
+Gráficos em **https://localhost:8443/**
+
+TLS + Basic Auth juntos:
+
+```toml
+[server]
+listen = ":8443"
+tls_enabled = true
+tls_cert = "/etc/ssl/certs/mailgraph.crt"
+tls_key = "/etc/ssl/private/mailgraph.key"
+
+[auth]
+enabled = true
+username = "admin"
+password = "secret"
 ```
 
 Copie `config.toml.example` ou gere um arquivo com:
@@ -121,6 +191,13 @@ mailgraph generate-config
 | `MAILGRAPH_RRD_DIR` | `rrd.dir` |
 | `MAILGRAPH_SERVER_LISTEN` | `server.listen` |
 | `MAILGRAPH_SERVER_HOSTNAME` | `server.hostname` |
+| `MAILGRAPH_SERVER_TLS_ENABLED` | `server.tls_enabled` |
+| `MAILGRAPH_SERVER_TLS_CERT` | `server.tls_cert` |
+| `MAILGRAPH_SERVER_TLS_KEY` | `server.tls_key` |
+| `MAILGRAPH_AUTH_ENABLED` | `auth.enabled` |
+| `MAILGRAPH_AUTH_USERNAME` | `auth.username` |
+| `MAILGRAPH_AUTH_PASSWORD` | `auth.password` |
+| `MAILGRAPH_AUTH_REALM` | `auth.realm` |
 | `MAILGRAPH_FILTER_IGNORE_LOCALHOST` | `filter.ignore_localhost` |
 | `MAILGRAPH_APP_VERBOSE` | `app.verbose` |
 
@@ -139,8 +216,15 @@ mailgraph server \
 |------|-----------|
 | `--logfile` | Arquivo de log syslog do Postfix |
 | `--daemon-rrd` | Diretório dos arquivos `.rrd` |
-| `--listen` | Endereço HTTP (padrão `:8080`) |
+| `--listen` | Endereço de escuta (padrão `:8080`) |
 | `--hostname` | Nome exibido no título dos gráficos |
+| `--tls` | Habilita HTTPS |
+| `--tls-cert` | Arquivo do certificado TLS (PEM) |
+| `--tls-key` | Arquivo da chave privada TLS (PEM) |
+| `--auth` | Habilita HTTP Basic Auth |
+| `--auth-user` | Usuário da autenticação |
+| `--auth-pass` | Senha da autenticação |
+| `--auth-realm` | Realm exibido no prompt do navegador |
 | `--ignore-localhost` | Ignora tráfego de/para `127.0.0.1` |
 | `--ignore-host` | Ignora host (regex, repetível) |
 | `--verbose` | Saída detalhada |
@@ -199,7 +283,7 @@ docker run --rm -d \
   davidullrich/mailgraph:latest
 ```
 
-Gráficos: **http://localhost:8080/mailgraph/**
+Gráficos: **http://localhost:8080/**
 
 Configuração opcional via arquivo ou ambiente:
 
@@ -210,6 +294,37 @@ docker run --rm -d \
   -v /var/data/mailgraph/rrd:/var/www/mailgraph/rrd \
   -v /etc/mailgraph/config.toml:/etc/mailgraph/config.toml:ro \
   -e MAILGRAPH_SERVER_HOSTNAME=mail.example.com \
+  -p 8080:8080 \
+  davidullrich/mailgraph:latest
+```
+
+Com TLS (monte certificado e chave):
+
+```bash
+docker run --rm -d \
+  --name mailgraph \
+  -v /var/log/mail/mail.log:/var/log/mail/mail.log:ro \
+  -v /var/data/mailgraph/rrd:/var/www/mailgraph/rrd \
+  -v /etc/letsencrypt/live/mail.example.com/fullchain.pem:/etc/ssl/certs/mailgraph.crt:ro \
+  -v /etc/letsencrypt/live/mail.example.com/privkey.pem:/etc/ssl/private/mailgraph.key:ro \
+  -e MAILGRAPH_SERVER_LISTEN=:8443 \
+  -e MAILGRAPH_SERVER_TLS_ENABLED=true \
+  -e MAILGRAPH_SERVER_TLS_CERT=/etc/ssl/certs/mailgraph.crt \
+  -e MAILGRAPH_SERVER_TLS_KEY=/etc/ssl/private/mailgraph.key \
+  -p 8443:8443 \
+  davidullrich/mailgraph:latest
+```
+
+Com Basic Auth:
+
+```bash
+docker run --rm -d \
+  --name mailgraph \
+  -v /var/log/mail/mail.log:/var/log/mail/mail.log:ro \
+  -v /var/data/mailgraph/rrd:/var/www/mailgraph/rrd \
+  -e MAILGRAPH_AUTH_ENABLED=true \
+  -e MAILGRAPH_AUTH_USERNAME=admin \
+  -e MAILGRAPH_AUTH_PASSWORD=secret \
   -p 8080:8080 \
   davidullrich/mailgraph:latest
 ```
@@ -235,31 +350,6 @@ services:
     ports:
       - "8080:8080"
 ```
-
-### Reverse proxy com Traefik
-
-```yaml
-services:
-  mailgraph:
-    image: davidullrich/mailgraph:latest
-    hostname: mail.example.com
-    restart: unless-stopped
-    volumes:
-      - /var/log/mail/mail.log:/var/log/mail/mail.log:ro
-      - /var/data/mailgraph/rrd:/var/www/mailgraph/rrd
-      - /etc/localtime:/etc/localtime:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.mailgraph-router.rule=Host(`mail.example.com`) && PathPrefix(`/mailgraph`)"
-      - "traefik.http.routers.mailgraph-router.entryPoints=websecure"
-      - "traefik.http.routers.mailgraph-router.service=mailgraph-service"
-      - "traefik.http.services.mailgraph-service.loadBalancer.server.scheme=http"
-      - "traefik.http.services.mailgraph-service.loadBalancer.server.port=8080"
-      - "traefik.http.routers.mailgraph-router.middlewares=mailgraph-middleware-auth"
-      - "traefik.http.middlewares.mailgraph-middleware-auth.basicauth.users=user:[password-hash]"
-```
-
----
 
 ## Como funciona
 
