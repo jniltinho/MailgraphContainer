@@ -1,0 +1,5 @@
+bin/
+*.rrd
+testdata/
+upx-*.tar.xz
+upx-*-amd64_linux/

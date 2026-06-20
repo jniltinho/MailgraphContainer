@@ -25,7 +25,7 @@ jobs:
     displayName: Build Image
     inputs:
       command: build
-      dockerfile: "$(Build.SourcesDirectory)/dockerfile"
+      dockerfile: "$(Build.SourcesDirectory)/Dockerfile"
       repository: $(Repository)
       addBaseImageData: false
       addPipelineData: false
