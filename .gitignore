@@ -1,7 +1,8 @@
 bin/
 ssl/
 *.rrd
-testdata/
+testdata/*
+!testdata/.gitkeep
 config_*.toml
 upx-*.tar.xz
 upx-*-amd64_linux/

@@ -1,0 +1,12 @@
+services:
+  mailgraph-test:
+    image: mailgraph:test
+    container_name: mailgraph-test
+    hostname: mx02
+    restart: unless-stopped
+    ports:
+      - "8585:8080"
+    volumes:
+      - ./testdata/mail.log:/var/log/mail/mail.log:ro
+      - ./testdata/rrd:/var/www/mailgraph/rrd
+      - /etc/localtime:/etc/localtime:ro

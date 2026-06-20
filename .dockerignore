@@ -1,0 +1,10 @@
+.git
+bin/
+ssl/
+testdata/mail.log
+testdata/rrd/
+backups/
+*.rrd
+upx-*.tar.xz
+upx-*-amd64_linux/
+config_*.toml
