@@ -2,7 +2,7 @@
 package buildinfo
 
 // Version is the application version, set at link time via -ldflags.
-var Version = "2.0.0"
+var Version = "dev"
 
 // BuildDate is the UTC build timestamp, set at link time via -ldflags.
 var BuildDate = "unknown"

@@ -11,6 +11,9 @@ jobs:
     permissions:
       contents: write
 
+    env:
+      VERSION: ${{ github.ref_name }}
+
     steps:
       - name: Set timezone to America/Sao_Paulo
         run: sudo timedatectl set-timezone America/Sao_Paulo
@@ -32,27 +35,23 @@ jobs:
           sudo apt-get install -y upx-ucl
           upx --version
 
+      - name: Show build version
+        run: make version
+
       - name: Install Project Dependencies
         run: make deps
 
       - name: Run Tests
         run: make test
 
-      - name: Build Application
-        run: make build-prod
-
-      - name: Package Binary
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          ARCHIVE_NAME="mailgraph_${VERSION}_linux_amd64.tar.gz"
-          cd bin && tar -czvf "../${ARCHIVE_NAME}" mailgraph && cd ..
-          echo "ARCHIVE_NAME=${ARCHIVE_NAME}" >> "$GITHUB_ENV"
+      - name: Package Release
+        run: make package
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            ${{ env.ARCHIVE_NAME }}
+            mailgraph_*_linux_amd64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

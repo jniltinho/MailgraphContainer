@@ -9,9 +9,11 @@ UPX_URL      := https://github.com/upx/upx/releases/download/v$(UPX_VERSION)/$(U
 APP        := mailgraph
 BIN        := bin/$(APP)
 PKG        := mailgraph/internal/buildinfo
-VERSION    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+VERSION    ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+RELEASE_VERSION := $(shell echo $(VERSION) | sed 's/^v//')
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+ARCHIVE_NAME := mailgraph_$(RELEASE_VERSION)_linux_amd64.tar.gz
 IMAGE         ?= davidullrich/mailgraph:latest
 TEST_IMAGE    ?= mailgraph:test
 TEST_PORT     ?= 8585
@@ -24,19 +26,29 @@ LDFLAGS := -trimpath -ldflags "-s -w \
 	-X $(PKG).BuildDate=$(BUILD_TIME) \
 	-X $(PKG).GitCommit=$(GIT_COMMIT)"
 
-.PHONY: all build build-prod run clean deps tidy test install-upx build-docker \
+.PHONY: all build build-prod run clean deps tidy test version package install-upx build-docker \
 	fetch-testdata test-docker-build test-docker test-docker-down test-docker-validate certs help
 
 all: clean build
 
 build: clean
-	@echo "Building $(APP)..."
+	@echo "Building $(APP) $(VERSION)..."
 	CGO_ENABLED=0 go build -o $(BIN) $(LDFLAGS) .
 
 build-prod: clean
-	@echo "Building $(APP) (UPX compressed)..."
+	@echo "Building $(APP) $(VERSION) (UPX compressed)..."
 	CGO_ENABLED=0 go build -o $(BIN) $(LDFLAGS) .
 	upx --best --lzma $(BIN)
+
+version:
+	@echo "Version:  $(VERSION)"
+	@echo "Release:  $(RELEASE_VERSION)"
+	@echo "Commit:   $(GIT_COMMIT)"
+	@echo "Built at: $(BUILD_TIME)"
+
+package: build-prod
+	@echo "Packaging $(ARCHIVE_NAME)..."
+	cd bin && tar -czvf "../$(ARCHIVE_NAME)" $(APP)
 
 run: build
 	@echo "Starting $(APP)..."
@@ -71,7 +83,7 @@ install-upx:
 	rm -rf "$(UPX_DIR)" "$(UPX_ARCHIVE)"
 
 build-docker:
-	@echo "Building Docker image $(IMAGE)..."
+	@echo "Building Docker image $(IMAGE) ($(VERSION))..."
 	docker build --no-cache --progress=plain \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
@@ -86,7 +98,7 @@ testdata/mail.log:
 	@ls -lh $@
 
 test-docker-build:
-	@echo "Building test image $(TEST_IMAGE)..."
+	@echo "Building test image $(TEST_IMAGE) ($(VERSION))..."
 	docker build --progress=plain \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
@@ -130,6 +142,8 @@ help:
 	@echo "Makefile commands:"
 	@echo "  build         - Build Go binary (trimpath + ldflags)"
 	@echo "  build-prod    - Build + UPX compression (for releases)"
+	@echo "  version       - Show VERSION / RELEASE_VERSION from git tag"
+	@echo "  package       - Build-prod + mailgraph_<version>_linux_amd64.tar.gz"
 	@echo "  build-docker  - Multi-stage Docker image ($(IMAGE))"
 	@echo "  run           - Build and start mailgraph locally"
 	@echo "  test          - Run go test ./..."
