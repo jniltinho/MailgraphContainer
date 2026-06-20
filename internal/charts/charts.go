@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -130,7 +131,7 @@ func (g *Generator) renderTraffic(period Period) (string, error) {
 		return "", err
 	}
 
-	labels, series := buildSeries(points, "sent", "recv")
+	labels, series := buildSeries(points, period, "sent", "recv")
 	line := baseLine(period.Title, "msgs/min", labels)
 	line.AddSeries("Sent", series[0],
 		charts.WithAreaStyleOpts(opts.AreaStyle{Color: colors["sent"]}),
@@ -155,9 +156,9 @@ func (g *Generator) renderErrors(period Period) (string, error) {
 		return "", virusErr
 	}
 
-	labels := labelsFrom(mailPts)
+	labels := labelsFrom(mailPts, period)
 	if len(labels) == 0 {
-		labels = labelsFrom(virusPts)
+		labels = labelsFrom(virusPts, period)
 	}
 
 	line := baseLine(period.Title+" - Errors", "msgs/min", labels)
@@ -200,7 +201,7 @@ func (g *Generator) renderDovecot(period Period) (string, error) {
 		return "", err
 	}
 
-	labels, series := buildSeries(points, "dovecotloginsuccess", "dovecotloginfailed")
+	labels, series := buildSeries(points, period, "dovecotloginsuccess", "dovecotloginfailed")
 	line := baseLine(period.Title+" - Dovecot", "logins/min", labels)
 	line.AddSeries("Dovecot logins successful", series[0],
 		charts.WithAreaStyleOpts(opts.AreaStyle{Color: colors["dovecotloginsuccess"]}),
@@ -221,7 +222,7 @@ func (g *Generator) renderTriple(path string, period Period, title, yLabel, k1, 
 		return "", err
 	}
 
-	labels, series := buildSeries(points, k1, k2, k3)
+	labels, series := buildSeries(points, period, k1, k2, k3)
 	line := baseLine(title, yLabel, labels)
 	line.AddSeries(n1, series[0],
 		charts.WithAreaStyleOpts(opts.AreaStyle{Color: colors[k1]}),
@@ -239,6 +240,7 @@ func (g *Generator) renderTriple(path string, period Period, title, yLabel, k1, 
 
 func baseLine(title, yLabel string, labels []string) *charts.Line {
 	line := charts.NewLine()
+	line.SetXAxis(labels)
 	line.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{Width: "900px", Height: "200px"}),
 		charts.WithTitleOpts(opts.Title{Title: title, Left: "center"}),
@@ -247,22 +249,37 @@ func baseLine(title, yLabel string, labels []string) *charts.Line {
 		charts.WithGridOpts(opts.Grid{Left: "3%", Right: "4%", Bottom: "15%", ContainLabel: opts.Bool(true)}),
 		charts.WithXAxisOpts(opts.XAxis{
 			Type: "category",
-			Data: labels,
-			AxisLabel: &opts.AxisLabel{Rotate: 45},
+			AxisLabel: &opts.AxisLabel{
+				Rotate:      45,
+				HideOverlap: opts.Bool(true),
+			},
 		}),
 		charts.WithYAxisOpts(opts.YAxis{Name: yLabel, Type: "value", Min: opts.Float(0)}),
 	)
 	return line
 }
 
-func buildSeries(points []rrd.DataPoint, keys ...string) ([]string, [][]opts.LineData) {
+func formatAxisLabel(period Period, t time.Time) string {
+	switch period.Slug {
+	case "today", "last-day":
+		return t.Format("15:04")
+	case "last-week", "last-2-weeks":
+		return t.Format("Mon 01-02")
+	case "last-year", "last-2-years":
+		return t.Format("2006-01-02")
+	default:
+		return t.Format("01-02")
+	}
+}
+
+func buildSeries(points []rrd.DataPoint, period Period, keys ...string) ([]string, [][]opts.LineData) {
 	labels := make([]string, len(points))
 	series := make([][]opts.LineData, len(keys))
 	for i := range keys {
 		series[i] = make([]opts.LineData, len(points))
 	}
 	for i, p := range points {
-		labels[i] = p.Timestamp.Format("01-02 15:04")
+		labels[i] = formatAxisLabel(period, p.Timestamp)
 		for j, key := range keys {
 			series[j][i] = opts.LineData{Value: rrd.RatePerMinute(p.Values[key])}
 		}
@@ -270,10 +287,10 @@ func buildSeries(points []rrd.DataPoint, keys ...string) ([]string, [][]opts.Lin
 	return labels, series
 }
 
-func labelsFrom(points []rrd.DataPoint) []string {
+func labelsFrom(points []rrd.DataPoint, period Period) []string {
 	labels := make([]string, len(points))
 	for i, p := range points {
-		labels[i] = p.Timestamp.Format("01-02 15:04")
+		labels[i] = formatAxisLabel(period, p.Timestamp)
 	}
 	return labels
 }

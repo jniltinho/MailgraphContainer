@@ -61,7 +61,14 @@ The root `/` redirects to `/today`.
 | `/mailgraph.css` | CSS embedded in the binary |
 | `/chart?period=N&type=T` | Single chart HTML (`T` = `n`/`e`/`s`/`d`/`k`/`v`) |
 
-Horizontal axis labels: **date and time** (`MM-DD HH:MM`, server local time).
+Horizontal axis labels (server local time, format varies by period):
+
+| Period | Axis label format | Example |
+|--------|-------------------|---------|
+| Today, Last Day | hour:minute | `19:48` |
+| Last Week, Last 2 Weeks | weekday + date | `Mon 06-15` |
+| Last Month, Last 2 Month | month-day | `06-15` |
+| Last Year, Last 2 Years | full date | `2026-06-15` |
 
 ---
 
