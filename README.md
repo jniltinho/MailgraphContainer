@@ -56,7 +56,7 @@ config.toml.example     # exemplo de configuração
 Dockerfile              # build multi-stage (Go + UPX → Alpine)
 Makefile                # build local, UPX, Docker
 entrypoint.sh           # entrypoint do container (mailgraph server)
-mailgraph/              # scripts Perl originais (referência)
+backups/mailgraph/      # scripts Perl originais (referência)
 ```
 
 ---
@@ -263,6 +263,7 @@ make deps          # baixar módulos Go
 make build         # binário em bin/mailgraph
 make build-prod    # build + UPX (--best --lzma)
 make run           # build + mailgraph server (teste local)
+make certs         # certificado TLS autoassinado em ssl/
 make test          # go test ./...
 make help          # lista completa
 ```
@@ -399,4 +400,4 @@ Na primeira execução sem RRD, o histórico do log é importado automaticamente
 
 ## Licença
 
-GNU General Public License v2 — ver `mailgraph/COPYING` (código original).
+GNU General Public License v2 — ver `backups/mailgraph/COPYING` (código original).
