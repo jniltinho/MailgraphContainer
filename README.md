@@ -68,6 +68,8 @@ Includes the SPF / DMARC / DKIM patch by [Sebastian van de Meer](https://www.ker
 
 ## License
 
-GNU General Public License v2 — see `backups/mailgraph/COPYING`.
+This Go port is licensed under the [MIT License](LICENSE).
+
+Legacy Perl Mailgraph files in `backups/mailgraph/` remain under [GPL v2](backups/mailgraph/COPYING).
 
 **Credits:** [Mailgraph](https://mailgraph.schweikert.ch) (David Schweikert) · SPF/DMARC/DKIM patch (Sebastian van de Meer) · [Original Docker](https://www.production-ready.de/2023/04/15/mailgraph-docker-container-en.html) (David Ullrich) · Go port ([Go-Mailgraph](https://github.com/jniltinho/Go-Mailgraph))

@@ -373,6 +373,13 @@ To reprocess the log from scratch: `rm -rf testdata/rrd/*` before starting the c
 
 ---
 
+## License
+
+- **Go-Mailgraph** (this repository) — [MIT License](../LICENSE)
+- **Legacy Perl Mailgraph** (`backups/mailgraph/`) — GPL v2 ([COPYING](../backups/mailgraph/COPYING))
+
+---
+
 ## Credits
 
 - [Mailgraph](https://mailgraph.schweikert.ch) — David Schweikert (GPL)
