@@ -146,5 +146,6 @@ help:
 	@echo "Examples:"
 	@echo "  make build-prod"
 	@echo "  make build-docker IMAGE=jniltinho/mailgraph:latest"
-	@echo "  make test-docker TESTDATA_HOST=mx02"
+	@echo "  make fetch-testdata TESTDATA_HOST=mx01"
+	@echo "  make test-docker TESTDATA_HOST=mx01"
 	@echo "  make certs"

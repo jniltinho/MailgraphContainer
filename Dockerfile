@@ -24,12 +24,15 @@ RUN BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) && \
     -o bin/mailgraph . && \
     upx --best --lzma bin/mailgraph
 
-# Stage 2: Final minimal image
+# Stage 2: Final runtime image
 FROM alpine:3.21
 
 ENV TZ=America/Sao_Paulo
 
-RUN apk add --no-cache ca-certificates tzdata rrdtool
+RUN apk add --no-cache \
+        ca-certificates \
+        tzdata \
+        rrdtool
 
 WORKDIR /app
 

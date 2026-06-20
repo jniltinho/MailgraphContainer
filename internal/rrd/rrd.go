@@ -245,9 +245,20 @@ func (s *Store) UpdateGap(from, to int64) error {
 
 // Fetch returns averaged RRD samples from the last seconds interval.
 func (s *Store) Fetch(path string, seconds int) ([]DataPoint, error) {
+	return s.FetchRange(path, fmt.Sprintf("-%d", seconds))
+}
+
+// FetchToday returns averaged RRD samples from local midnight until now.
+func (s *Store) FetchToday(path string) ([]DataPoint, error) {
+	return s.FetchRange(path, "midnight")
+}
+
+// FetchRange returns averaged RRD samples from start until now.
+// start accepts rrdtool time specs such as "-86400", "midnight", or a Unix timestamp.
+func (s *Store) FetchRange(path string, start string) ([]DataPoint, error) {
 	args := []string{
 		"fetch", path, "AVERAGE",
-		"--start", fmt.Sprintf("-%d", seconds),
+		"--start", start,
 		"--end", "now",
 	}
 	out, err := exec.Command("rrdtool", args...).CombinedOutput()

@@ -13,18 +13,34 @@ import (
 	"mailgraph/internal/rrd"
 )
 
-// Periods lists the predefined time ranges available on the index page.
-var Periods = []struct {
-	Title   string
-	Seconds int
-}{
-	{Title: "Last Day", Seconds: 3600 * 24},
-	{Title: "Last Week", Seconds: 3600 * 24 * 7},
-	{Title: "Last 2 Weeks", Seconds: 3600 * 24 * 7 * 2},
-	{Title: "Last Month", Seconds: 3600 * 24 * 31},
-	{Title: "Last 2 Month", Seconds: 3600 * 24 * 31 * 2},
-	{Title: "Last Year", Seconds: 3600 * 24 * 365},
-	{Title: "Last 2 Years", Seconds: 3600 * 24 * 365 * 2},
+// Period describes a predefined graph time range.
+type Period struct {
+	Title        string
+	Slug         string
+	Seconds      int
+	FromMidnight bool
+}
+
+// Periods lists the predefined time ranges available in the web UI.
+var Periods = []Period{
+	{Title: "Today", Slug: "today", FromMidnight: true},
+	{Title: "Last Day", Slug: "last-day", Seconds: 3600 * 24},
+	{Title: "Last Week", Slug: "last-week", Seconds: 3600 * 24 * 7},
+	{Title: "Last 2 Weeks", Slug: "last-2-weeks", Seconds: 3600 * 24 * 7 * 2},
+	{Title: "Last Month", Slug: "last-month", Seconds: 3600 * 24 * 31},
+	{Title: "Last 2 Month", Slug: "last-2-month", Seconds: 3600 * 24 * 31 * 2},
+	{Title: "Last Year", Slug: "last-year", Seconds: 3600 * 24 * 365},
+	{Title: "Last 2 Years", Slug: "last-2-years", Seconds: 3600 * 24 * 365 * 2},
+}
+
+// PeriodIndex returns the period index for slug, or false when unknown.
+func PeriodIndex(slug string) (int, bool) {
+	for i, p := range Periods {
+		if p.Slug == slug {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 const (
@@ -78,38 +94,44 @@ func (g *Generator) Render(period int, chartType string) (string, error) {
 		return "", fmt.Errorf("invalid period %d", period)
 	}
 
-	seconds := Periods[period].Seconds
-	title := Periods[period].Title
+	p := Periods[period]
 
 	switch chartType {
 	case TypeTraffic:
-		return g.renderTraffic(seconds, title)
+		return g.renderTraffic(p)
 	case TypeErrors:
-		return g.renderErrors(seconds, title)
+		return g.renderErrors(p)
 	case TypeSPF:
-		return g.renderSPF(seconds, title)
+		return g.renderSPF(p)
 	case TypeDMARC:
-		return g.renderDMARC(seconds, title)
+		return g.renderDMARC(p)
 	case TypeDKIM:
-		return g.renderDKIM(seconds, title)
+		return g.renderDKIM(p)
 	case TypeDovecot:
-		return g.renderDovecot(seconds, title)
+		return g.renderDovecot(p)
 	default:
 		return "", fmt.Errorf("invalid chart type %q", chartType)
 	}
 }
 
-func (g *Generator) renderTraffic(seconds int, title string) (string, error) {
-	points, err := g.store.Fetch(g.store.MailPath(), seconds)
+func (g *Generator) fetch(path string, period Period) ([]rrd.DataPoint, error) {
+	if period.FromMidnight {
+		return g.store.FetchToday(path)
+	}
+	return g.store.Fetch(path, period.Seconds)
+}
+
+func (g *Generator) renderTraffic(period Period) (string, error) {
+	points, err := g.fetch(g.store.MailPath(), period)
 	if err != nil {
 		if isMissingRRD(err) {
-			return emptyChart(title, "msgs/min", "No data yet"), nil
+			return emptyChart(period.Title, "msgs/min", "No data yet"), nil
 		}
 		return "", err
 	}
 
 	labels, series := buildSeries(points, "sent", "recv")
-	line := baseLine(title, "msgs/min", labels)
+	line := baseLine(period.Title, "msgs/min", labels)
 	line.AddSeries("Sent", series[0],
 		charts.WithAreaStyleOpts(opts.AreaStyle{Color: colors["sent"]}),
 		charts.WithLineStyleOpts(opts.LineStyle{Color: colors["sent"]}),
@@ -120,11 +142,11 @@ func (g *Generator) renderTraffic(seconds int, title string) (string, error) {
 	return renderChart(line)
 }
 
-func (g *Generator) renderErrors(seconds int, title string) (string, error) {
-	mailPts, mailErr := g.store.Fetch(g.store.MailPath(), seconds)
-	virusPts, virusErr := g.store.Fetch(g.store.VirusPath(), seconds)
+func (g *Generator) renderErrors(period Period) (string, error) {
+	mailPts, mailErr := g.fetch(g.store.MailPath(), period)
+	virusPts, virusErr := g.fetch(g.store.VirusPath(), period)
 	if isMissingRRD(mailErr) && isMissingRRD(virusErr) {
-		return emptyChart(title+" - Errors", "msgs/min", "No data yet"), nil
+		return emptyChart(period.Title+" - Errors", "msgs/min", "No data yet"), nil
 	}
 	if mailErr != nil && !isMissingRRD(mailErr) {
 		return "", mailErr
@@ -138,7 +160,7 @@ func (g *Generator) renderErrors(seconds int, title string) (string, error) {
 		labels = labelsFrom(virusPts)
 	}
 
-	line := baseLine(title+" - Errors", "msgs/min", labels)
+	line := baseLine(period.Title+" - Errors", "msgs/min", labels)
 	line.AddSeries("Bounced", valuesFor(mailPts, "bounced"),
 		charts.WithAreaStyleOpts(opts.AreaStyle{Color: colors["bounced"]}),
 		charts.WithLineStyleOpts(opts.LineStyle{Color: colors["bounced"]}),
@@ -157,29 +179,29 @@ func (g *Generator) renderErrors(seconds int, title string) (string, error) {
 	return renderChart(line)
 }
 
-func (g *Generator) renderSPF(seconds int, title string) (string, error) {
-	return g.renderTriple(g.store.MailPath(), seconds, title+" - SPF", "msgs/min", "spfpass", "spfnone", "spffail", "SPF pass", "SPF none", "SPF fail")
+func (g *Generator) renderSPF(period Period) (string, error) {
+	return g.renderTriple(g.store.MailPath(), period, period.Title+" - SPF", "msgs/min", "spfpass", "spfnone", "spffail", "SPF pass", "SPF none", "SPF fail")
 }
 
-func (g *Generator) renderDMARC(seconds int, title string) (string, error) {
-	return g.renderTriple(g.store.MailPath(), seconds, title+" - DMARC", "msgs/min", "dmarcpass", "dmarcnone", "dmarcfail", "DMARC pass", "DMARC none", "DMARC fail")
+func (g *Generator) renderDMARC(period Period) (string, error) {
+	return g.renderTriple(g.store.MailPath(), period, period.Title+" - DMARC", "msgs/min", "dmarcpass", "dmarcnone", "dmarcfail", "DMARC pass", "DMARC none", "DMARC fail")
 }
 
-func (g *Generator) renderDKIM(seconds int, title string) (string, error) {
-	return g.renderTriple(g.store.MailPath(), seconds, title+" - DKIM", "msgs/min", "dkimpass", "dkimnone", "dkimfail", "DKIM pass", "DKIM none", "DKIM fail")
+func (g *Generator) renderDKIM(period Period) (string, error) {
+	return g.renderTriple(g.store.MailPath(), period, period.Title+" - DKIM", "msgs/min", "dkimpass", "dkimnone", "dkimfail", "DKIM pass", "DKIM none", "DKIM fail")
 }
 
-func (g *Generator) renderDovecot(seconds int, title string) (string, error) {
-	points, err := g.store.Fetch(g.store.DovecotPath(), seconds)
+func (g *Generator) renderDovecot(period Period) (string, error) {
+	points, err := g.fetch(g.store.DovecotPath(), period)
 	if err != nil {
 		if isMissingRRD(err) {
-			return emptyChart(title+" - Dovecot", "logins/min", "No data yet"), nil
+			return emptyChart(period.Title+" - Dovecot", "logins/min", "No data yet"), nil
 		}
 		return "", err
 	}
 
 	labels, series := buildSeries(points, "dovecotloginsuccess", "dovecotloginfailed")
-	line := baseLine(title+" - Dovecot", "logins/min", labels)
+	line := baseLine(period.Title+" - Dovecot", "logins/min", labels)
 	line.AddSeries("Dovecot logins successful", series[0],
 		charts.WithAreaStyleOpts(opts.AreaStyle{Color: colors["dovecotloginsuccess"]}),
 		charts.WithLineStyleOpts(opts.LineStyle{Color: colors["dovecotloginsuccess"]}),
@@ -190,8 +212,8 @@ func (g *Generator) renderDovecot(seconds int, title string) (string, error) {
 	return renderChart(line)
 }
 
-func (g *Generator) renderTriple(path string, seconds int, title, yLabel, k1, k2, k3, n1, n2, n3 string) (string, error) {
-	points, err := g.store.Fetch(path, seconds)
+func (g *Generator) renderTriple(path string, period Period, title, yLabel, k1, k2, k3, n1, n2, n3 string) (string, error) {
+	points, err := g.fetch(path, period)
 	if err != nil {
 		if isMissingRRD(err) {
 			return emptyChart(title, yLabel, "No data yet"), nil
@@ -264,12 +286,21 @@ func valuesFor(points []rrd.DataPoint, key string) []opts.LineData {
 	return data
 }
 
+const chartFrameCSS = `<style>html,body{margin:0;padding:0;overflow:hidden;background:#fff}.container{margin:0!important;padding:0}</style>`
+
+func wrapChartHTML(html string) string {
+	if idx := strings.Index(html, "</head>"); idx >= 0 {
+		return html[:idx] + chartFrameCSS + html[idx:]
+	}
+	return chartFrameCSS + html
+}
+
 func renderChart(line *charts.Line) (string, error) {
 	var buf bytes.Buffer
 	if err := line.Render(io.MultiWriter(&buf)); err != nil {
 		return "", err
 	}
-	return buf.String(), nil
+	return wrapChartHTML(buf.String()), nil
 }
 
 func emptyChart(title, yLabel, message string) string {
@@ -281,7 +312,7 @@ func emptyChart(title, yLabel, message string) string {
 	)
 	var buf bytes.Buffer
 	_ = line.Render(&buf)
-	return buf.String()
+	return wrapChartHTML(buf.String())
 }
 
 func isMissingRRD(err error) bool {

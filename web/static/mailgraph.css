@@ -5,10 +5,12 @@
 
 body {
 	width: 1000px;
+	max-width: calc(100% - 20px);
 	background-color: white;
 	font-family: sans-serif;
 	font-size: 12pt;
-	margin: 5px
+	margin: 5px auto;
+	padding: 0 10px;
 }
 
 h1 {
@@ -46,8 +48,14 @@ a:hover {
 	text-decoration: underline;
 }
 
+#jump a.active {
+	font-weight: bold;
+	text-decoration: underline;
+}
+
 #jump {
-	margin: 0 0 10px 4px
+	margin: 0 0 10px;
+	text-align: center;
 }
 
 #jump li {
@@ -62,4 +70,18 @@ a:hover {
 
 #jump li:last-child:after {
 	content: "";
+}
+
+.charts {
+	margin: 0 0 12px;
+}
+
+iframe.chart {
+	width: 920px;
+	max-width: 100%;
+	height: 250px;
+	border: 0;
+	display: block;
+	margin: 0 auto 4px;
+	overflow: hidden;
 }

@@ -1,3 +1,4 @@
+.agent/
 bin/
 ssl/
 *.rrd

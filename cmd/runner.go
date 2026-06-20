@@ -57,7 +57,7 @@ func runServer(cfg config.Config) error {
 	}()
 
 	e := echo.New()
-	srv := web.New(cfg)
+	srv := web.New(cfg, mailgraphCSS)
 	srv.Register(e)
 
 	sc := echo.StartConfig{Address: cfg.ListenAddr}

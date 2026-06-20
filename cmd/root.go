@@ -19,8 +19,14 @@ var (
 		Long:  "RRDtool frontend for mail statistics with interactive charts.",
 	}
 
-	cfgFile string
+	cfgFile      string
+	mailgraphCSS []byte
 )
+
+// SetMailgraphCSS provides embedded static assets from main before Execute.
+func SetMailgraphCSS(css []byte) {
+	mailgraphCSS = css
+}
 
 // Execute runs the root command and exits with status 1 on failure.
 func Execute() {

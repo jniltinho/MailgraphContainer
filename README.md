@@ -9,7 +9,7 @@ Um único binário substitui o stack antigo (Perl + Apache + CGI + PNG estático
 | `mailgraph.pl` + `mailgraph.cgi` | `mailgraph` (Go) |
 | Apache2 | [Echo v5](https://echo.labstack.com/) |
 | Gráficos PNG (`rrdtool graph`) | [go-echarts](https://github.com/go-echarts/go-echarts) (interativos) |
-| Imagem Debian + Perl | Alpine + binário UPX (~2.7 MB) |
+| Imagem Debian + Perl | Alpine + binário UPX (~3,2 MB) |
 
 Inclui o patch SPF / DMARC / DKIM de [Sebastian van de Meer](https://www.kernel-error.de/2014/04/22/mailgraph-graphen-um-spf-dmarc-und-dkim-erweitern/).
 
@@ -23,8 +23,10 @@ Imagem Docker: [Docker Hub — davidullrich/mailgraph](https://hub.docker.com/r/
 
 - Leitura em tempo real do log de e-mail (`tail -f`)
 - Compatível com arquivos RRD existentes do Mailgraph original
-- Gráficos: enviados/recebidos, erros, SPF, DMARC, DKIM, Dovecot, vírus/spam
-- Períodos: dia, semana, 2 semanas, mês, 2 meses, ano, 2 anos
+- Gráficos interativos (go-echarts): enviados/recebidos, erros, SPF, DMARC, DKIM, Dovecot, vírus/spam
+- Períodos com URL própria: **Today**, Last Day, Last Week, Last 2 Weeks, Last Month, Last 2 Month, Last Year, Last 2 Years
+- **Today** = desde meia-noite (horário local) até agora; **Last Day** = últimas 24 horas corridas
+- CSS embutido no binário (`go:embed` em `main.go` a partir de `web/static/`)
 - Suporte a Postfix, Sendmail, Exim, Amavis, ClamAV, SpamAssassin e outros
 - HTTPS opcional via TLS nativo do Echo v5
 - HTTP Basic Auth opcional (middleware do Echo)
@@ -42,8 +44,9 @@ Imagem Docker: [Docker Hub — davidullrich/mailgraph](https://hub.docker.com/r/
 ## Estrutura do projeto
 
 ```
-main.go                 # entrypoint
+main.go                 # entrypoint; go:embed de web/static/mailgraph.css
 cmd/                    # comandos Cobra (server, cat, version, generate-config)
+web/static/             # CSS e demais assets estáticos (embutidos no binário)
 internal/
   buildinfo/            # versão (ldflags)
   config/               # carregamento Viper
@@ -51,10 +54,11 @@ internal/
   syslog/               # parser syslog/metalog
   rrd/                  # create/update/fetch via rrdtool
   charts/               # geração de gráficos go-echarts
-  web/                  # handlers Echo v5
+  web/                  # handlers Echo v5 e templates HTML
 config.toml.example     # exemplo de configuração
+docker-compose.test.yml # container de teste local (porta 8585)
 Dockerfile              # build multi-stage (Go + UPX → Alpine)
-Makefile                # build local, UPX, Docker
+Makefile                # build local, UPX, Docker, testes com log remoto
 entrypoint.sh           # entrypoint do container (mailgraph server)
 backups/mailgraph/      # scripts Perl originais (referência)
 ```
@@ -73,6 +77,32 @@ mailgraph server --help    # flags do subcomando server
 ```
 
 No container, `entrypoint.sh` executa `mailgraph server` por padrão. Argumentos passados ao `docker run` substituem esse comportamento.
+
+---
+
+## Interface web
+
+A raiz `/` redireciona para `/today`. Cada período tem página e URL próprias; os seis gráficos do período são carregados em iframes.
+
+| Período | URL |
+|---------|-----|
+| Today | `/today` |
+| Last Day | `/last-day` |
+| Last Week | `/last-week` |
+| Last 2 Weeks | `/last-2-weeks` |
+| Last Month | `/last-month` |
+| Last 2 Month | `/last-2-month` |
+| Last Year | `/last-year` |
+| Last 2 Years | `/last-2-years` |
+
+Rotas auxiliares:
+
+| Rota | Descrição |
+|------|-----------|
+| `/mailgraph.css` | CSS embutido no binário |
+| `/chart?period=N&type=T` | HTML de um gráfico (`N` = índice do período, `T` = `n`/`e`/`s`/`d`/`k`/`v`) |
+
+No eixo horizontal, os rótulos são **data e hora** (`MM-DD HH:MM`, horário local do servidor). A página recarrega a cada **5 minutos** (`meta refresh`).
 
 ---
 
@@ -173,7 +203,7 @@ mailgraph server \
   --tls-key=/etc/ssl/private/mailgraph.key
 ```
 
-Gráficos em **https://localhost:8443/**
+Gráficos em **https://localhost:8443/today**
 
 TLS + Basic Auth juntos:
 
@@ -267,6 +297,9 @@ make build-prod    # build + UPX (--best --lzma)
 make run           # build + mailgraph server (teste local)
 make certs         # certificado TLS autoassinado em ssl/
 make test          # go test ./...
+make fetch-testdata TESTDATA_HOST=mx01   # baixa mail.log remoto para testdata/
+make test-docker   # build + container de teste em :8585
+make test-docker-down
 make help          # lista completa
 ```
 
@@ -301,7 +334,7 @@ docker run --rm -d \
   davidullrich/mailgraph:latest
 ```
 
-Gráficos: **http://localhost:8080/**
+Gráficos: **http://localhost:8080/today** (ou `/last-week`, `/last-month`, etc.)
 
 Configuração opcional via arquivo ou ambiente:
 
@@ -368,6 +401,19 @@ services:
     ports:
       - "8080:8080"
 ```
+
+### Teste local com log remoto
+
+Para validar a imagem com um `mail.log` de um servidor Postfix (via `scp`), sem commitar o log:
+
+```bash
+make fetch-testdata TESTDATA_HOST=mx01    # grava em testdata/mail.log (gitignored)
+make test-docker                          # sobe mailgraph-test em http://127.0.0.1:8585/
+make test-docker-validate
+make test-docker-down
+```
+
+O compose de teste está em `docker-compose.test.yml` (porta **8585**, RRD em `testdata/rrd/`). Para reprocessar o log do zero, apague `testdata/rrd/*` antes de subir o container.
 
 ## Como funciona
 

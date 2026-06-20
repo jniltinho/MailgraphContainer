@@ -2,7 +2,7 @@
 
 Guia para instalar e executar o Mailgraph (versão Go) diretamente no mesmo servidor que roda o **Postfix**, ou via Docker montando o log local.
 
-O Mailgraph lê o log de e-mail, grava estatísticas em arquivos RRD e exibe gráficos interativos na raiz do servidor web (`http://<servidor>:8080/` ou `https://<servidor>:8443/` com TLS).
+O Mailgraph lê o log de e-mail, grava estatísticas em arquivos RRD e exibe gráficos interativos na raiz do servidor web (`http://<servidor>:8080/today` ou `https://<servidor>:8443/today` com TLS). A raiz `/` redireciona para `/today`.
 
 ---
 
@@ -171,8 +171,21 @@ sudo mailgraph server
 Abra no navegador (via SSH tunnel ou proxy):
 
 ```
-http://127.0.0.1:8080/
+http://127.0.0.1:8080/today
 ```
+
+Períodos disponíveis (cada um com URL própria):
+
+| Período | URL |
+|---------|-----|
+| Today (dia atual, desde 00:00) | `/today` |
+| Last Day (últimas 24 h) | `/last-day` |
+| Last Week | `/last-week` |
+| Last 2 Weeks | `/last-2-weeks` |
+| Last Month | `/last-month` |
+| Last 2 Month | `/last-2-month` |
+| Last Year | `/last-year` |
+| Last 2 Years | `/last-2-years` |
 
 ### Importar log histórico sem subir o servidor web
 
@@ -360,7 +373,7 @@ docker run --rm -d \
   davidullrich/mailgraph:latest
 ```
 
-Gráficos em `http://127.0.0.1:8080/`.
+Gráficos em `http://127.0.0.1:8080/today`.
 
 Com TLS no Docker:
 

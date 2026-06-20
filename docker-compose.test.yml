@@ -2,8 +2,10 @@ services:
   mailgraph-test:
     image: mailgraph:test
     container_name: mailgraph-test
-    hostname: mx02
+    hostname: mail.domain.com
     restart: unless-stopped
+    environment:
+      - MAILGRAPH_SERVER_HOSTNAME=mail.domain.com
     ports:
       - "8585:8080"
     volumes:
