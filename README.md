@@ -70,4 +70,4 @@ Includes the SPF / DMARC / DKIM patch by [Sebastian van de Meer](https://www.ker
 
 GNU General Public License v2 — see `backups/mailgraph/COPYING`.
 
-**Credits:** [Mailgraph](https://mailgraph.schweikert.ch) (David Schweikert) · SPF/DMARC/DKIM patch (Sebastian van de Meer) · [Original Docker](https://www.production-ready.de/2023/04/15/mailgraph-docker-container-en.html) (David Ullrich) · Go port (MailgraphContainer)
+**Credits:** [Mailgraph](https://mailgraph.schweikert.ch) (David Schweikert) · SPF/DMARC/DKIM patch (Sebastian van de Meer) · [Original Docker](https://www.production-ready.de/2023/04/15/mailgraph-docker-container-en.html) (David Ullrich) · Go port ([Go-Mailgraph](https://github.com/jniltinho/Go-Mailgraph))

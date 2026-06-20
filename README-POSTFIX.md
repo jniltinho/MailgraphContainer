@@ -92,8 +92,8 @@ sudo apt install -y rrdtool git
 ### 2.2 Build
 
 ```bash
-git clone https://github.com/jniltinho/MailgraphContainer.git
-cd MailgraphContainer
+git clone https://github.com/jniltinho/Go-Mailgraph.git
+cd Go-Mailgraph
 
 make build
 # or: go build -trimpath -ldflags="-s -w" -o mailgraph .

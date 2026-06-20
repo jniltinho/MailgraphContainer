@@ -378,4 +378,4 @@ To reprocess the log from scratch: `rm -rf testdata/rrd/*` before starting the c
 - [Mailgraph](https://mailgraph.schweikert.ch) — David Schweikert (GPL)
 - SPF/DMARC/DKIM patch — Sebastian van de Meer
 - Original Docker container — [David Ullrich](https://www.production-ready.de/2023/04/15/mailgraph-docker-container-en.html) ([DE](https://www.production-ready.de/2023/04/15/mailgraph-docker-container.html))
-- Go port — MailgraphContainer
+- Go port — [Go-Mailgraph](https://github.com/jniltinho/Go-Mailgraph)
